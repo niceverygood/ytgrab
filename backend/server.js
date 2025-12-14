@@ -31,7 +31,13 @@ if (!fs.existsSync(DOWNLOADS_DIR)) {
 
 // CORS 설정
 app.use(cors({
-  origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  origin: [
+    'http://localhost:8080', 
+    'http://127.0.0.1:8080',
+    'https://ytgrab.vercel.app',
+    'https://ytgrab-xi.vercel.app',
+    /\.vercel\.app$/
+  ],
   credentials: true
 }));
 
