@@ -1,0 +1,654 @@
+import 'dotenv/config';
+import express from 'express';
+import cors from 'cors';
+import { spawn } from 'child_process';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
+import { v4 as uuidv4 } from 'uuid';
+import Anthropic from '@anthropic-ai/sdk';
+import archiver from 'archiver';
+
+const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY || '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';
+
+const anthropic = new Anthropic({
+  apiKey: CLAUDE_API_KEY
+});
+
+const hasAI = !!CLAUDE_API_KEY;
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const app = express();
+const PORT = 8000;
+
+// Downloads directory
+const DOWNLOADS_DIR = path.join(__dirname, 'downloads');
+if (!fs.existsSync(DOWNLOADS_DIR)) {
+  fs.mkdirSync(DOWNLOADS_DIR, { recursive: true });
+}
+
+// CORS 설정
+app.use(cors({
+  origin: ['http://localhost:8080', 'http://127.0.0.1:8080'],
+  credentials: true
+}));
+
+app.use(express.json());
+
+// Store download progress
+const downloadProgress = new Map();
+// Store bulk download progress
+const bulkDownloadProgress = new Map();
+
+// Get video info
+app.post('/api/info', async (req, res) => {
+  const { url } = req.body;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  // Validate YouTube URL
+  const youtubeRegex = /^(https?:\/\/)?(www\.)?(youtube\.com\/(watch\?v=|embed\/|v\/)|youtu\.be\/)[\w-]+/;
+  if (!youtubeRegex.test(url)) {
+    return res.status(400).json({ error: 'Invalid YouTube URL' });
+  }
+
+  try {
+    const process = spawn('yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      url
+    ]);
+
+    let stdout = '';
+    let stderr = '';
+
+    process.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    process.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    process.on('close', (code) => {
+      if (code !== 0) {
+        console.error('yt-dlp error:', stderr);
+        return res.status(500).json({ error: 'Failed to get video info', details: stderr });
+      }
+
+      try {
+        const info = JSON.parse(stdout);
+        
+        // Filter formats to only include mp4 with both video and audio, or best available
+        const formats = info.formats
+          .filter(f => f.ext === 'mp4' && f.vcodec !== 'none')
+          .map(f => ({
+            formatId: f.format_id,
+            quality: f.format_note || f.resolution || 'Unknown',
+            resolution: f.resolution || `${f.width}x${f.height}`,
+            filesize: f.filesize || f.filesize_approx,
+            hasAudio: f.acodec !== 'none',
+            fps: f.fps
+          }))
+          .sort((a, b) => {
+            const resA = parseInt(a.resolution) || 0;
+            const resB = parseInt(b.resolution) || 0;
+            return resB - resA;
+          });
+
+        res.json({
+          title: info.title,
+          thumbnail: info.thumbnail,
+          duration: info.duration,
+          uploader: info.uploader,
+          viewCount: info.view_count,
+          formats: formats.length > 0 ? formats : [{ formatId: 'best', quality: 'Best Available', resolution: 'Auto' }]
+        });
+      } catch (parseError) {
+        console.error('Parse error:', parseError);
+        res.status(500).json({ error: 'Failed to parse video info' });
+      }
+    });
+  } catch (error) {
+    console.error('Error:', error);
+    res.status(500).json({ error: 'Server error' });
+  }
+});
+
+// Download video
+app.post('/api/download', async (req, res) => {
+  const { url, formatId, title, outputFormat = 'mp4' } = req.body;
+  
+  if (!url) {
+    return res.status(400).json({ error: 'URL is required' });
+  }
+
+  const downloadId = uuidv4();
+  const outputTemplate = path.join(DOWNLOADS_DIR, `${downloadId}.%(ext)s`);
+  
+  // 파일명에서 사용할 수 없는 문자 제거
+  const safeTitle = (title || 'video').replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+  
+  console.log('Download request:', { url, formatId, title, safeTitle, outputFormat });
+  
+  downloadProgress.set(downloadId, { progress: 0, status: 'starting', title: safeTitle, outputFormat });
+
+  res.json({ downloadId, message: 'Download started' });
+
+  let args = [];
+  
+  if (outputFormat === 'mp3') {
+    // Audio only - MP3
+    args = [
+      '-x',
+      '--audio-format', 'mp3',
+      '--audio-quality', '0',
+      '-o', outputTemplate,
+      '--no-playlist',
+      '--newline',
+      url
+    ];
+  } else if (outputFormat === 'webm') {
+    // WebM format
+    args = [
+      '-f', formatId && formatId !== 'best' ? `${formatId}+bestaudio/best` : 'bestvideo+bestaudio/best',
+      '--merge-output-format', 'webm',
+      '-o', outputTemplate,
+      '--no-playlist',
+      '--newline',
+      url
+    ];
+  } else {
+    // MP4 (default)
+    args = [
+      '-f', formatId && formatId !== 'best' ? `${formatId}+bestaudio/best` : 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+      '--merge-output-format', 'mp4',
+      '-o', outputTemplate,
+      '--no-playlist',
+      '--newline',
+      url
+    ];
+  }
+
+  const process = spawn('yt-dlp', args);
+
+  process.stdout.on('data', (data) => {
+    const output = data.toString();
+    console.log('yt-dlp:', output);
+    
+    // Get existing progress data to preserve title and outputFormat
+    const existingProgress = downloadProgress.get(downloadId) || {};
+    
+    // Parse progress
+    const progressMatch = output.match(/(\d+\.?\d*)%/);
+    if (progressMatch) {
+      downloadProgress.set(downloadId, {
+        ...existingProgress,
+        progress: parseFloat(progressMatch[1]),
+        status: 'downloading'
+      });
+    }
+    
+    if (output.includes('[Merger]') || output.includes('Merging') || output.includes('[ExtractAudio]')) {
+      downloadProgress.set(downloadId, {
+        ...existingProgress,
+        progress: 99,
+        status: 'processing'
+      });
+    }
+  });
+
+  process.stderr.on('data', (data) => {
+    console.error('yt-dlp stderr:', data.toString());
+  });
+
+  process.on('close', (code) => {
+    const currentProgress = downloadProgress.get(downloadId);
+    if (code === 0) {
+      // Find the downloaded file
+      const files = fs.readdirSync(DOWNLOADS_DIR);
+      const downloadedFile = files.find(f => f.startsWith(downloadId));
+      
+      if (downloadedFile) {
+        downloadProgress.set(downloadId, {
+          progress: 100,
+          status: 'completed',
+          filename: downloadedFile,
+          title: currentProgress?.title || 'video',
+          outputFormat: currentProgress?.outputFormat || 'mp4'
+        });
+      } else {
+        downloadProgress.set(downloadId, {
+          progress: 0,
+          status: 'error',
+          error: 'File not found after download'
+        });
+      }
+    } else {
+      downloadProgress.set(downloadId, {
+        progress: 0,
+        status: 'error',
+        error: 'Download failed'
+      });
+    }
+  });
+});
+
+// Get download progress
+app.get('/api/progress/:downloadId', (req, res) => {
+  const { downloadId } = req.params;
+  const progress = downloadProgress.get(downloadId);
+  
+  if (!progress) {
+    return res.status(404).json({ error: 'Download not found' });
+  }
+  
+  res.json(progress);
+});
+
+// Serve downloaded file
+app.get('/api/file/:downloadId', (req, res) => {
+  const { downloadId } = req.params;
+  const progress = downloadProgress.get(downloadId);
+  
+  if (!progress || progress.status !== 'completed') {
+    return res.status(404).json({ error: 'File not ready' });
+  }
+  
+  const filePath = path.join(DOWNLOADS_DIR, progress.filename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'File not found' });
+  }
+  
+  // outputFormat에 따른 확장자와 Content-Type 설정
+  const formatInfo = {
+    mp4: { ext: '.mp4', contentType: 'video/mp4' },
+    mp3: { ext: '.mp3', contentType: 'audio/mpeg' },
+    webm: { ext: '.webm', contentType: 'video/webm' }
+  };
+  
+  const format = formatInfo[progress.outputFormat] || formatInfo.mp4;
+  const downloadName = `${progress.title || 'video'}${format.ext}`;
+  
+  console.log('File download:', { 
+    downloadId, 
+    title: progress.title, 
+    outputFormat: progress.outputFormat,
+    downloadName 
+  });
+  
+  // Content-Disposition 헤더 설정
+  res.setHeader('Content-Type', format.contentType);
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(downloadName)}"; filename*=UTF-8''${encodeURIComponent(downloadName)}`);
+  
+  res.download(filePath, downloadName, (err) => {
+    if (err) {
+      console.error('Download error:', err);
+    }
+    // Clean up file after download
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(filePath);
+        downloadProgress.delete(downloadId);
+      } catch (e) {
+        console.error('Cleanup error:', e);
+      }
+    }, 60000); // Delete after 1 minute
+  });
+});
+
+// Get similar music recommendations using AI
+app.post('/api/recommend', async (req, res) => {
+  const { title, uploader, count = 5 } = req.body;
+  
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  // Limit count to reasonable range
+  const songCount = Math.min(Math.max(parseInt(count) || 5, 1), 20);
+
+  if (!hasAI) {
+    return res.status(503).json({ 
+      error: 'AI recommendations not available', 
+      message: 'Please set ANTHROPIC_API_KEY environment variable' 
+    });
+  }
+
+  try {
+    const message = await anthropic.messages.create({
+      model: 'claude-sonnet-4-20250514',
+      max_tokens: 2000,
+      messages: [
+        {
+          role: 'user',
+          content: `You are a music recommendation expert. Given a song or video title and artist, suggest ${songCount} similar songs/music videos that users might enjoy.
+
+Return ONLY a JSON array with exactly ${songCount} items in this format (no other text, just the JSON):
+[
+  {"title": "Song Title", "artist": "Artist Name", "searchQuery": "Artist Name Song Title official video"},
+  ...
+]
+
+Make sure the recommendations are real, popular songs that exist on YouTube. Focus on similar genre, mood, or artist style. Include a diverse mix of well-known and somewhat lesser-known tracks.
+
+Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Artist'}`
+        }
+      ]
+    });
+
+    const content = message.content[0].text;
+    
+    // Parse JSON from response
+    const jsonMatch = content.match(/\[[\s\S]*\]/);
+    if (!jsonMatch) {
+      throw new Error('Failed to parse recommendations');
+    }
+    
+    const recommendations = JSON.parse(jsonMatch[0]);
+    
+    // Search YouTube for each recommendation
+    const results = await Promise.all(
+      recommendations.map(async (rec) => {
+        try {
+          const searchResult = await searchYouTube(rec.searchQuery);
+          return {
+            ...rec,
+            ...searchResult
+          };
+        } catch (err) {
+          console.error('Search error:', err);
+          return null;
+        }
+      })
+    );
+    
+    res.json({ recommendations: results.filter(r => r !== null) });
+  } catch (error) {
+    console.error('Recommendation error:', error);
+    res.status(500).json({ error: 'Failed to get recommendations', details: error.message });
+  }
+});
+
+// Search YouTube using yt-dlp
+async function searchYouTube(query) {
+  return new Promise((resolve, reject) => {
+    const process = spawn('yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      '--default-search', 'ytsearch1',
+      query
+    ]);
+
+    let stdout = '';
+    let stderr = '';
+
+    process.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
+
+    process.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
+
+    process.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr));
+        return;
+      }
+
+      try {
+        const info = JSON.parse(stdout);
+        resolve({
+          videoId: info.id,
+          url: `https://www.youtube.com/watch?v=${info.id}`,
+          thumbnail: info.thumbnail,
+          duration: info.duration,
+          viewCount: info.view_count
+        });
+      } catch (err) {
+        reject(err);
+      }
+    });
+  });
+}
+
+// Bulk download - downloads multiple videos and creates a ZIP
+app.post('/api/bulk-download', async (req, res) => {
+  const { videos, outputFormat = 'mp3' } = req.body;
+  
+  if (!videos || !Array.isArray(videos) || videos.length === 0) {
+    return res.status(400).json({ error: 'Videos array is required' });
+  }
+
+  const bulkId = uuidv4();
+  const bulkDir = path.join(DOWNLOADS_DIR, bulkId);
+  fs.mkdirSync(bulkDir, { recursive: true });
+
+  bulkDownloadProgress.set(bulkId, {
+    status: 'downloading',
+    total: videos.length,
+    completed: 0,
+    current: '',
+    files: []
+  });
+
+  res.json({ bulkId, message: 'Bulk download started' });
+
+  // Process downloads sequentially
+  (async () => {
+    const downloadedFiles = [];
+    
+    for (let i = 0; i < videos.length; i++) {
+      const video = videos[i];
+      const safeTitle = (video.title || `video_${i + 1}`).replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+      
+      bulkDownloadProgress.set(bulkId, {
+        ...bulkDownloadProgress.get(bulkId),
+        current: safeTitle,
+        completed: i,
+        status: 'downloading'
+      });
+
+      try {
+        const ext = outputFormat === 'mp3' ? 'mp3' : outputFormat === 'webm' ? 'webm' : 'mp4';
+        const outputPath = path.join(bulkDir, `${safeTitle}.${ext}`);
+        
+        await downloadVideo(video.url, outputPath, outputFormat);
+        downloadedFiles.push({ title: safeTitle, path: outputPath, ext });
+        
+        bulkDownloadProgress.set(bulkId, {
+          ...bulkDownloadProgress.get(bulkId),
+          completed: i + 1,
+          files: downloadedFiles.map(f => f.title)
+        });
+      } catch (error) {
+        console.error(`Failed to download ${video.title}:`, error);
+      }
+    }
+
+    // Create ZIP file
+    bulkDownloadProgress.set(bulkId, {
+      ...bulkDownloadProgress.get(bulkId),
+      status: 'zipping',
+      current: 'Creating ZIP file...'
+    });
+
+    const zipPath = path.join(DOWNLOADS_DIR, `${bulkId}.zip`);
+    
+    try {
+      await createZip(downloadedFiles, zipPath);
+      
+      // Clean up individual files
+      fs.rmSync(bulkDir, { recursive: true, force: true });
+      
+      bulkDownloadProgress.set(bulkId, {
+        ...bulkDownloadProgress.get(bulkId),
+        status: 'completed',
+        zipFile: `${bulkId}.zip`,
+        current: ''
+      });
+    } catch (error) {
+      console.error('ZIP creation error:', error);
+      bulkDownloadProgress.set(bulkId, {
+        ...bulkDownloadProgress.get(bulkId),
+        status: 'error',
+        error: 'Failed to create ZIP file'
+      });
+    }
+  })();
+});
+
+// Download a single video (helper function)
+function downloadVideo(url, outputPath, format) {
+  return new Promise((resolve, reject) => {
+    let args = [];
+    
+    if (format === 'mp3') {
+      args = [
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '-o', outputPath.replace('.mp3', '.%(ext)s'),
+        '--no-playlist',
+        url
+      ];
+    } else if (format === 'webm') {
+      args = [
+        '-f', 'bestvideo+bestaudio/best',
+        '--merge-output-format', 'webm',
+        '-o', outputPath,
+        '--no-playlist',
+        url
+      ];
+    } else {
+      args = [
+        '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]/best[ext=mp4]/best',
+        '--merge-output-format', 'mp4',
+        '-o', outputPath,
+        '--no-playlist',
+        url
+      ];
+    }
+
+    const process = spawn('yt-dlp', args);
+    
+    process.stdout.on('data', (data) => {
+      console.log('yt-dlp bulk:', data.toString());
+    });
+    
+    process.stderr.on('data', (data) => {
+      console.error('yt-dlp bulk stderr:', data.toString());
+    });
+    
+    process.on('close', (code) => {
+      if (code === 0) {
+        // For MP3, find the actual file
+        if (format === 'mp3') {
+          const dir = path.dirname(outputPath);
+          const baseName = path.basename(outputPath, '.mp3');
+          const files = fs.readdirSync(dir);
+          const mp3File = files.find(f => f.startsWith(baseName) && f.endsWith('.mp3'));
+          if (mp3File) {
+            resolve(path.join(dir, mp3File));
+          } else {
+            reject(new Error('MP3 file not found'));
+          }
+        } else {
+          resolve(outputPath);
+        }
+      } else {
+        reject(new Error('Download failed'));
+      }
+    });
+  });
+}
+
+// Create ZIP from files
+function createZip(files, zipPath) {
+  return new Promise((resolve, reject) => {
+    const output = fs.createWriteStream(zipPath);
+    const archive = archiver('zip', { zlib: { level: 9 } });
+    
+    output.on('close', () => {
+      console.log(`ZIP created: ${archive.pointer()} bytes`);
+      resolve();
+    });
+    
+    archive.on('error', (err) => {
+      reject(err);
+    });
+    
+    archive.pipe(output);
+    
+    files.forEach(file => {
+      if (fs.existsSync(file.path)) {
+        archive.file(file.path, { name: `${file.title}.${file.ext}` });
+      }
+    });
+    
+    archive.finalize();
+  });
+}
+
+// Get bulk download progress
+app.get('/api/bulk-progress/:bulkId', (req, res) => {
+  const { bulkId } = req.params;
+  const progress = bulkDownloadProgress.get(bulkId);
+  
+  if (!progress) {
+    return res.status(404).json({ error: 'Bulk download not found' });
+  }
+  
+  res.json(progress);
+});
+
+// Serve bulk download ZIP file
+app.get('/api/bulk-file/:bulkId', (req, res) => {
+  const { bulkId } = req.params;
+  const progress = bulkDownloadProgress.get(bulkId);
+  
+  if (!progress || progress.status !== 'completed') {
+    return res.status(404).json({ error: 'ZIP file not ready' });
+  }
+  
+  const filePath = path.join(DOWNLOADS_DIR, progress.zipFile);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'ZIP file not found' });
+  }
+  
+  res.setHeader('Content-Type', 'application/zip');
+  res.setHeader('Content-Disposition', `attachment; filename="music_downloads.zip"; filename*=UTF-8''music_downloads.zip`);
+  
+  res.download(filePath, 'music_downloads.zip', (err) => {
+    if (err) {
+      console.error('Download error:', err);
+    }
+    // Clean up after download
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(filePath);
+        bulkDownloadProgress.delete(bulkId);
+      } catch (e) {
+        console.error('Cleanup error:', e);
+      }
+    }, 300000); // Delete after 5 minutes
+  });
+});
+
+// Health check
+app.get('/api/health', (req, res) => {
+  res.json({ status: 'ok', timestamp: new Date().toISOString() });
+});
+
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log(`📁 Downloads directory: ${DOWNLOADS_DIR}`);
+});
+

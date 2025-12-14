@@ -1,0 +1,20 @@
+{
+  "name": "youtube-downloader-backend",
+  "version": "1.0.0",
+  "description": "YouTube MP4 Downloader Backend",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js"
+  },
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.71.2",
+    "archiver": "^7.0.1",
+    "cors": "^2.8.5",
+    "dotenv": "^17.2.3",
+    "express": "^4.18.2",
+    "openai": "^6.10.0",
+    "uuid": "^9.0.0"
+  }
+}
