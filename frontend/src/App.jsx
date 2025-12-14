@@ -451,6 +451,21 @@ function App() {
         {/* Video Info Card */}
         {videoInfo && (
           <div className="video-card">
+            <button 
+              className="close-btn"
+              onClick={() => {
+                setVideoInfo(null)
+                setSelectedFormat(null)
+                setRecommendations([])
+                setShowRecSection(false)
+                setError('')
+              }}
+              title="New Search"
+            >
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="M18 6L6 18M6 6l12 12"/>
+              </svg>
+            </button>
             <div 
               className="video-thumbnail clickable"
               onClick={() => window.open(url, '_blank')}

@@ -201,6 +201,34 @@
   animation: slideUp 0.5s ease-out;
 }
 
+.video-card .close-btn {
+  position: absolute;
+  top: 12px;
+  right: 12px;
+  z-index: 10;
+  width: 36px;
+  height: 36px;
+  background: rgba(0, 0, 0, 0.7);
+  border: none;
+  border-radius: 50%;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.video-card .close-btn:hover {
+  background: rgba(255, 68, 68, 0.9);
+  transform: scale(1.1);
+}
+
+.video-card .close-btn svg {
+  width: 18px;
+  height: 18px;
+  color: white;
+}
+
 @keyframes slideUp {
   from {
     opacity: 0;
