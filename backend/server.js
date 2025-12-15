@@ -392,84 +392,83 @@ Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Ar
   }
 });
 
-// Search YouTube using yt-dlp - finds single songs only (under 10 minutes)
-async function searchYouTube(query, maxDuration = 600, retries = 3) {
-  for (let attempt = 0; attempt < retries; attempt++) {
-    // Try different search variations to find single tracks
-    const searchQuery = attempt === 0 ? query : 
-      attempt === 1 ? `${query} official audio` : 
-      `${query} music video`;
-    
-    const result = await new Promise((resolve, reject) => {
-      const proc = spawn('yt-dlp', [
-        '--dump-json',
-        '--no-playlist',
-        '--default-search', `ytsearch5`,  // Get 5 results to filter
-        searchQuery
-      ]);
+// Search YouTube using yt-dlp - finds single songs only (prefer under 10 minutes)
+async function searchYouTube(query, maxDuration = 600) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn('yt-dlp', [
+      '--dump-json',
+      '--no-playlist',
+      '--default-search', `ytsearch10`,  // Get 10 results to filter
+      query
+    ]);
 
-      let stdout = '';
-      let stderr = '';
+    let stdout = '';
+    let stderr = '';
 
-      proc.stdout.on('data', (data) => {
-        stdout += data.toString();
-      });
+    proc.stdout.on('data', (data) => {
+      stdout += data.toString();
+    });
 
-      proc.stderr.on('data', (data) => {
-        stderr += data.toString();
-      });
+    proc.stderr.on('data', (data) => {
+      stderr += data.toString();
+    });
 
-      proc.on('close', (code) => {
-        if (code !== 0) {
-          reject(new Error(stderr));
+    proc.on('close', (code) => {
+      if (code !== 0) {
+        reject(new Error(stderr));
+        return;
+      }
+
+      try {
+        // Parse multiple JSON objects (one per line)
+        const results = stdout.trim().split('\n')
+          .map(line => {
+            try { return JSON.parse(line); } 
+            catch { return null; }
+          })
+          .filter(Boolean);
+        
+        if (results.length === 0) {
+          resolve(null);
           return;
         }
 
-        try {
-          // Parse multiple JSON objects (one per line)
-          const results = stdout.trim().split('\n')
-            .map(line => {
-              try { return JSON.parse(line); } 
-              catch { return null; }
-            })
-            .filter(Boolean);
+        // Keywords that indicate mix/compilation videos
+        const mixKeywords = ['mix', 'compilation', 'hour', 'hours', 'best of', 'playlist', 
+          'medley', 'mashup', 'nonstop', 'non-stop', 'collection', '1 hour', '2 hour', 
+          '1시간', '2시간', '모음', '메들리'];
+        
+        // Sort results by preference: short + not mix > short > not mix > any
+        const scored = results.map(info => {
+          const titleLower = (info.title || '').toLowerCase();
+          const isMix = mixKeywords.some(kw => titleLower.includes(kw));
+          const isShort = info.duration && info.duration <= maxDuration;
           
-          // Find the first video under maxDuration (10 minutes by default)
-          // Also filter out videos with mix/compilation keywords in title
-          const mixKeywords = ['mix', 'compilation', 'hour', 'hours', 'best of', 'playlist', 
-            'medley', 'mashup', 'nonstop', 'non-stop', 'collection', '1 hour', '2 hour'];
+          let score = 0;
+          if (isShort) score += 2;
+          if (!isMix) score += 1;
           
-          const validVideo = results.find(info => {
-            const titleLower = (info.title || '').toLowerCase();
-            const isMix = mixKeywords.some(kw => titleLower.includes(kw));
-            const isShort = info.duration && info.duration <= maxDuration;
-            return isShort && !isMix;
-          });
-
-          if (validVideo) {
-            resolve({
-              videoId: validVideo.id,
-              url: `https://www.youtube.com/watch?v=${validVideo.id}`,
-              thumbnail: validVideo.thumbnail,
-              duration: validVideo.duration,
-              viewCount: validVideo.view_count
-            });
-          } else {
-            resolve(null);  // No valid video found
-          }
-        } catch (err) {
-          reject(err);
-        }
-      });
+          return { info, score, isShort, isMix };
+        });
+        
+        // Sort by score descending
+        scored.sort((a, b) => b.score - a.score);
+        
+        // Get the best result
+        const best = scored[0].info;
+        
+        resolve({
+          videoId: best.id,
+          url: `https://www.youtube.com/watch?v=${best.id}`,
+          thumbnail: best.thumbnail,
+          duration: best.duration,
+          viewCount: best.view_count
+        });
+      } catch (err) {
+        reject(err);
+      }
     });
-
-    if (result) {
-      return result;
-    }
-  }
-  
-  // If all retries fail, return null
-  return null;
+  });
 }
 
 // Bulk download - downloads multiple videos and creates a ZIP
