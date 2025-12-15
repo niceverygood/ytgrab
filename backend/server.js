@@ -310,7 +310,7 @@ app.get('/api/file/:downloadId', (req, res) => {
 
 // Get similar music recommendations using AI
 app.post('/api/recommend', async (req, res) => {
-  const { title, uploader, count = 5 } = req.body;
+  const { title, uploader, count = 5, excludeTitles = [] } = req.body;
   
   if (!title) {
     return res.status(400).json({ error: 'Title is required' });
@@ -326,6 +326,11 @@ app.post('/api/recommend', async (req, res) => {
     });
   }
 
+  // Build exclude list for prompt
+  const excludeSection = excludeTitles.length > 0 
+    ? `\n\nIMPORTANT: Do NOT recommend any of these songs (already recommended before):\n${excludeTitles.map(t => `- ${t}`).join('\n')}`
+    : '';
+
   try {
     const message = await anthropic.messages.create({
       model: 'claude-sonnet-4-20250514',
@@ -335,13 +340,19 @@ app.post('/api/recommend', async (req, res) => {
           role: 'user',
           content: `You are a music recommendation expert. Given a song or video title and artist, suggest ${songCount} similar songs/music videos that users might enjoy.
 
+CRITICAL RULES:
+1. Only recommend SINGLE SONGS (one track per recommendation)
+2. NEVER recommend: mix compilations, 1-hour videos, "best of" collections, DJ sets, mashups, medleys, playlist videos, or any video containing multiple songs
+3. Each recommendation must be a single, individual song/track
+4. Search queries should include "official" or "audio" or "music video" to find single-track uploads
+
 Return ONLY a JSON array with exactly ${songCount} items in this format (no other text, just the JSON):
 [
-  {"title": "Song Title", "artist": "Artist Name", "searchQuery": "Artist Name Song Title official video"},
+  {"title": "Song Title", "artist": "Artist Name", "searchQuery": "Artist Name Song Title official audio"},
   ...
 ]
 
-Make sure the recommendations are real, popular songs that exist on YouTube. Focus on similar genre, mood, or artist style. Include a diverse mix of well-known and somewhat lesser-known tracks.
+Make sure the recommendations are real, popular songs that exist on YouTube as single tracks. Focus on similar genre, mood, or artist style. Include a diverse mix of well-known and somewhat lesser-known tracks.${excludeSection}
 
 Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Artist'}`
         }
@@ -381,47 +392,84 @@ Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Ar
   }
 });
 
-// Search YouTube using yt-dlp
-async function searchYouTube(query) {
-  return new Promise((resolve, reject) => {
-    const process = spawn('yt-dlp', [
-      '--dump-json',
-      '--no-playlist',
-      '--default-search', 'ytsearch1',
-      query
-    ]);
+// Search YouTube using yt-dlp - finds single songs only (under 10 minutes)
+async function searchYouTube(query, maxDuration = 600, retries = 3) {
+  for (let attempt = 0; attempt < retries; attempt++) {
+    // Try different search variations to find single tracks
+    const searchQuery = attempt === 0 ? query : 
+      attempt === 1 ? `${query} official audio` : 
+      `${query} music video`;
+    
+    const result = await new Promise((resolve, reject) => {
+      const proc = spawn('yt-dlp', [
+        '--dump-json',
+        '--no-playlist',
+        '--default-search', `ytsearch5`,  // Get 5 results to filter
+        searchQuery
+      ]);
 
-    let stdout = '';
-    let stderr = '';
+      let stdout = '';
+      let stderr = '';
 
-    process.stdout.on('data', (data) => {
-      stdout += data.toString();
+      proc.stdout.on('data', (data) => {
+        stdout += data.toString();
+      });
+
+      proc.stderr.on('data', (data) => {
+        stderr += data.toString();
+      });
+
+      proc.on('close', (code) => {
+        if (code !== 0) {
+          reject(new Error(stderr));
+          return;
+        }
+
+        try {
+          // Parse multiple JSON objects (one per line)
+          const results = stdout.trim().split('\n')
+            .map(line => {
+              try { return JSON.parse(line); } 
+              catch { return null; }
+            })
+            .filter(Boolean);
+          
+          // Find the first video under maxDuration (10 minutes by default)
+          // Also filter out videos with mix/compilation keywords in title
+          const mixKeywords = ['mix', 'compilation', 'hour', 'hours', 'best of', 'playlist', 
+            'medley', 'mashup', 'nonstop', 'non-stop', 'collection', '1 hour', '2 hour'];
+          
+          const validVideo = results.find(info => {
+            const titleLower = (info.title || '').toLowerCase();
+            const isMix = mixKeywords.some(kw => titleLower.includes(kw));
+            const isShort = info.duration && info.duration <= maxDuration;
+            return isShort && !isMix;
+          });
+
+          if (validVideo) {
+            resolve({
+              videoId: validVideo.id,
+              url: `https://www.youtube.com/watch?v=${validVideo.id}`,
+              thumbnail: validVideo.thumbnail,
+              duration: validVideo.duration,
+              viewCount: validVideo.view_count
+            });
+          } else {
+            resolve(null);  // No valid video found
+          }
+        } catch (err) {
+          reject(err);
+        }
+      });
     });
 
-    process.stderr.on('data', (data) => {
-      stderr += data.toString();
-    });
-
-    process.on('close', (code) => {
-      if (code !== 0) {
-        reject(new Error(stderr));
-        return;
-      }
-
-      try {
-        const info = JSON.parse(stdout);
-        resolve({
-          videoId: info.id,
-          url: `https://www.youtube.com/watch?v=${info.id}`,
-          thumbnail: info.thumbnail,
-          duration: info.duration,
-          viewCount: info.view_count
-        });
-      } catch (err) {
-        reject(err);
-      }
-    });
-  });
+    if (result) {
+      return result;
+    }
+  }
+  
+  // If all retries fail, return null
+  return null;
 }
 
 // Bulk download - downloads multiple videos and creates a ZIP

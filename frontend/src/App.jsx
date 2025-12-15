@@ -28,6 +28,7 @@ function App() {
   const [showRecSection, setShowRecSection] = useState(false) // 추천 섹션 표시 여부
   const [bulkId, setBulkId] = useState(null) // ZIP 다운로드 ID
   const [zipReady, setZipReady] = useState(false) // ZIP 준비 완료 여부
+  const [previousRecs, setPreviousRecs] = useState([]) // 이전 추천 기록 (중복 방지용)
   const progressInterval = useRef(null)
   const bulkProgressInterval = useRef(null)
 
@@ -187,13 +188,19 @@ function App() {
   }
 
   // Fetch similar music recommendations
-  const fetchRecommendations = async (count = recCount) => {
+  const fetchRecommendations = async (count = recCount, isRefresh = false) => {
     if (!videoInfo) return
     
     setLoadingRecs(true)
     setRecommendations([])
     setRecError('')
     setShowRecSection(true)
+    
+    // 리프레시가 아닌 첫 추천일 경우 이전 추천 기록 초기화
+    const excludeTitles = isRefresh ? previousRecs : []
+    if (!isRefresh) {
+      setPreviousRecs([])
+    }
     
     try {
       const response = await fetch(`${API_BASE}/recommend`, {
@@ -202,7 +209,8 @@ function App() {
         body: JSON.stringify({ 
           title: videoInfo.title, 
           uploader: videoInfo.uploader,
-          count: count
+          count: count,
+          excludeTitles: excludeTitles
         })
       })
       
@@ -217,7 +225,12 @@ function App() {
         return
       }
       
-      setRecommendations(data.recommendations || [])
+      const newRecs = data.recommendations || []
+      setRecommendations(newRecs)
+      
+      // 새 추천을 이전 추천 기록에 추가 (다음 리프레시를 위해)
+      const newTitles = newRecs.map(r => `${r.artist} - ${r.title}`)
+      setPreviousRecs(prev => [...prev, ...newTitles])
     } catch (err) {
       console.error('Recommendation error:', err)
       setRecError('Failed to connect to recommendation service')
@@ -294,6 +307,7 @@ function App() {
     if (videoInfo) {
       setShowRecSection(false)
       setRecommendations([])
+      setPreviousRecs([]) // 이전 추천 기록도 초기화
     }
   }, [videoInfo])
 
@@ -668,7 +682,7 @@ function App() {
                     <span>{downloadAllProgress.current} / {downloadAllProgress.total}</span>
                   </div>
                 )}
-                <button className="refresh-btn" onClick={() => fetchRecommendations()} disabled={loadingRecs || downloadingAll}>
+                <button className="refresh-btn" onClick={() => fetchRecommendations(recCount, true)} disabled={loadingRecs || downloadingAll}>
                   <svg viewBox="0 0 24 24" fill="none" className={loadingRecs ? 'spinning' : ''}>
                     <path d="M4 4V9H4.58152M19.9381 11C19.446 7.05369 16.0796 4 12 4C8.64262 4 5.76829 6.06817 4.58152 9M4.58152 9H9M20 20V15H19.4185M19.4185 15C18.2317 17.9318 15.3574 20 12 20C7.92038 20 4.55399 16.9463 4.06189 13M19.4185 15H15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                   </svg>
