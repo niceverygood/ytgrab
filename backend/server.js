@@ -539,6 +539,121 @@ async function searchYouTube(query, maxDuration = 600) {
   });
 }
 
+// DJ Mix Order recommendation - AI suggests optimal track order for seamless mixing
+app.post('/api/dj-order', async (req, res) => {
+  const { tracks } = req.body;
+  
+  if (!tracks || !Array.isArray(tracks) || tracks.length < 2) {
+    return res.status(400).json({ error: 'At least 2 tracks are required' });
+  }
+
+  if (!hasAI) {
+    return res.status(503).json({ 
+      error: 'AI not available', 
+      message: 'Please set API keys for AI services' 
+    });
+  }
+
+  const trackList = tracks.map((t, i) => `${i + 1}. "${t.title}" by ${t.artist}`).join('\n');
+  
+  const prompt = `You are a professional DJ and music mixing expert. Analyze the following tracks and suggest the optimal order for a seamless DJ mix/set.
+
+TRACKS TO ORDER:
+${trackList}
+
+Consider these factors when ordering:
+1. BPM (tempo) - gradual transitions work best
+2. Musical key - harmonically compatible keys mix better (Camelot wheel)
+3. Energy level - build up and release patterns
+4. Genre compatibility
+5. Mood and vibe flow
+
+Return ONLY a JSON object in this exact format (no other text):
+{
+  "orderedTracks": [
+    {
+      "position": 1,
+      "originalIndex": 0,
+      "title": "Song Title",
+      "artist": "Artist Name",
+      "reason": "Opening track - sets the mood with moderate energy"
+    }
+  ],
+  "mixingTips": [
+    "Tip 1 for transitioning between tracks",
+    "Tip 2...",
+    "Tip 3..."
+  ],
+  "estimatedBPMRange": "120-128 BPM",
+  "overallVibe": "Description of the set's overall feeling"
+}
+
+Order all ${tracks.length} tracks for the best DJ mix flow.`;
+
+  let content = null;
+
+  // Try Gemini first
+  try {
+    console.log('DJ Order: Trying Gemini...');
+    content = await tryGemini(prompt);
+    console.log('DJ Order: Gemini success');
+  } catch (err) {
+    console.log('DJ Order: Gemini failed:', err.message);
+  }
+
+  // Try Claude if Gemini failed
+  if (!content) {
+    try {
+      console.log('DJ Order: Trying Claude...');
+      content = await tryClaude(prompt);
+      console.log('DJ Order: Claude success');
+    } catch (err) {
+      console.log('DJ Order: Claude failed:', err.message);
+    }
+  }
+
+  // Try OpenAI if Claude failed
+  if (!content) {
+    try {
+      console.log('DJ Order: Trying OpenAI...');
+      content = await tryOpenAI(prompt);
+      console.log('DJ Order: OpenAI success');
+    } catch (err) {
+      console.log('DJ Order: OpenAI failed:', err.message);
+      return res.status(500).json({ error: 'All AI services failed' });
+    }
+  }
+
+  try {
+    // Parse JSON from response
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+    
+    const result = JSON.parse(jsonMatch[0]);
+    
+    // Add original track data to ordered tracks
+    if (result.orderedTracks) {
+      result.orderedTracks = result.orderedTracks.map(t => {
+        const original = tracks[t.originalIndex];
+        return {
+          ...t,
+          thumbnail: original?.thumbnail,
+          url: original?.url,
+          videoId: original?.videoId,
+          duration: original?.duration
+        };
+      });
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error('DJ Order JSON parse error:', err);
+    res.status(500).json({ error: 'Failed to parse AI response' });
+  }
+});
+
 // Bulk download - downloads multiple videos and creates a ZIP
 app.post('/api/bulk-download', async (req, res) => {
   const { videos, outputFormat = 'mp3' } = req.body;

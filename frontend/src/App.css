@@ -817,6 +817,242 @@
   animation: none;
 }
 
+/* DJ Order Button */
+.dj-order-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border: none;
+  border-radius: 8px;
+  color: white;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.dj-order-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+.dj-order-btn:disabled {
+  opacity: 0.7;
+  cursor: not-allowed;
+}
+
+.dj-order-btn svg {
+  width: 16px;
+  height: 16px;
+}
+
+/* DJ Modal */
+.dj-modal {
+  max-width: 600px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+
+.dj-icon {
+  background: linear-gradient(135deg, #8b5cf6, #6366f1) !important;
+}
+
+.dj-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 3rem 2rem;
+  text-align: center;
+}
+
+.dj-loading p {
+  color: #fff;
+  font-weight: 500;
+}
+
+.dj-loading span {
+  color: #888;
+  font-size: 0.85rem;
+}
+
+.dj-error {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 2rem;
+  color: #ff6b6b;
+  text-align: center;
+}
+
+.dj-error svg {
+  width: 40px;
+  height: 40px;
+}
+
+.dj-result {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.dj-label {
+  display: block;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: #8b5cf6;
+  margin-bottom: 0.75rem;
+  font-weight: 600;
+}
+
+.dj-vibe {
+  background: rgba(139, 92, 246, 0.1);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.dj-vibe p {
+  color: #fff;
+  font-size: 0.95rem;
+  line-height: 1.5;
+  margin-bottom: 0.5rem;
+}
+
+.dj-bpm {
+  display: inline-block;
+  background: rgba(139, 92, 246, 0.2);
+  color: #a78bfa;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+}
+
+.dj-tracklist {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.dj-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dj-track {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.03);
+  border-radius: 10px;
+  position: relative;
+}
+
+.dj-track-num {
+  width: 28px;
+  height: 28px;
+  background: linear-gradient(135deg, #8b5cf6, #6366f1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.dj-track-thumb {
+  width: 50px;
+  height: 50px;
+  border-radius: 8px;
+  overflow: hidden;
+  flex-shrink: 0;
+}
+
+.dj-track-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.dj-track-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.dj-track-info h4 {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #fff;
+  margin-bottom: 0.2rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.dj-track-info p {
+  font-size: 0.8rem;
+  color: #888;
+  margin-bottom: 0.25rem;
+}
+
+.dj-track-reason {
+  display: block;
+  font-size: 0.75rem;
+  color: #a78bfa;
+  font-style: italic;
+}
+
+.dj-track-arrow {
+  position: absolute;
+  bottom: -14px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #8b5cf6;
+  font-size: 1rem;
+  z-index: 1;
+}
+
+.dj-tips {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 1rem;
+}
+
+.dj-tips ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.dj-tips li {
+  font-size: 0.85rem;
+  color: #ccc;
+  padding-left: 1.25rem;
+  position: relative;
+  line-height: 1.5;
+}
+
+.dj-tips li::before {
+  content: '→';
+  position: absolute;
+  left: 0;
+  color: #8b5cf6;
+}
+
 .download-zip-btn svg {
   width: 16px;
   height: 16px;
