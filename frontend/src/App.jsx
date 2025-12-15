@@ -299,6 +299,24 @@ function App() {
   const startDownload = async (target, format, qual) => {
     const videoUrl = target === 'source' ? videoInfo.url : target.url
     const title = target === 'source' ? videoInfo.title : target.title
+    const artist = target === 'source' ? videoInfo.uploader : target.artist
+    
+    // Get DJ analysis info if available
+    const analysis = target !== 'source' ? trackAnalysis[target.videoId] : null
+    
+    // Build custom filename with DJ info
+    let customFilename = artist ? `${artist} - ${title}` : title
+    if (analysis) {
+      const djInfo = []
+      if (analysis.bpm) djInfo.push(`${analysis.bpm}BPM`)
+      if (analysis.key) djInfo.push(analysis.key)
+      if (analysis.energy) djInfo.push(`E${analysis.energy}`)
+      if (analysis.genre) djInfo.push(analysis.genre)
+      if (analysis.mood) djInfo.push(analysis.mood)
+      if (djInfo.length > 0) {
+        customFilename += ` [${djInfo.join('_')}]`
+      }
+    }
 
     setDownloading(true)
     setProgress(0)
@@ -310,7 +328,8 @@ function App() {
         body: JSON.stringify({
           url: videoUrl,
           format,
-          quality: qual
+          quality: qual,
+          customFilename
         })
       })
 
@@ -379,10 +398,25 @@ function App() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          videos: recommendations.map(r => ({
-            url: r.url,
-            title: `${r.artist} - ${r.title}`
-          })),
+          videos: recommendations.map(r => {
+            const analysis = trackAnalysis[r.videoId]
+            let title = `${r.artist} - ${r.title}`
+            
+            // Add DJ info to filename if available
+            if (analysis) {
+              const djInfo = []
+              if (analysis.bpm) djInfo.push(`${analysis.bpm}BPM`)
+              if (analysis.key) djInfo.push(analysis.key)
+              if (analysis.energy) djInfo.push(`E${analysis.energy}`)
+              if (analysis.genre) djInfo.push(analysis.genre)
+              if (analysis.mood) djInfo.push(analysis.mood)
+              if (djInfo.length > 0) {
+                title += ` [${djInfo.join('_')}]`
+              }
+            }
+            
+            return { url: r.url, title }
+          }),
           outputFormat
         })
       })

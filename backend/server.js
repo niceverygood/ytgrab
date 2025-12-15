@@ -134,7 +134,7 @@ app.post('/api/info', async (req, res) => {
 
 // Download video
 app.post('/api/download', async (req, res) => {
-  const { url, formatId, title, outputFormat = 'mp4' } = req.body;
+  const { url, formatId, title, outputFormat = 'mp4', customFilename } = req.body;
   
   if (!url) {
     return res.status(400).json({ error: 'URL is required' });
@@ -143,10 +143,10 @@ app.post('/api/download', async (req, res) => {
   const downloadId = uuidv4();
   const outputTemplate = path.join(DOWNLOADS_DIR, `${downloadId}.%(ext)s`);
   
-  // 파일명에서 사용할 수 없는 문자 제거
-  const safeTitle = (title || 'video').replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+  // 파일명에서 사용할 수 없는 문자 제거 (customFilename 우선 사용)
+  const safeTitle = (customFilename || title || 'video').replace(/[<>:"/\\|?*]/g, '_').substring(0, 200);
   
-  console.log('Download request:', { url, formatId, title, safeTitle, outputFormat });
+  console.log('Download request:', { url, formatId, title, safeTitle, outputFormat, customFilename });
   
   downloadProgress.set(downloadId, { progress: 0, status: 'starting', title: safeTitle, outputFormat });
 
