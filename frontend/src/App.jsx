@@ -505,7 +505,7 @@ function App() {
                 <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
               </svg>
             </div>
-            <span className="logo-text">Beatflow</span>
+            <span className="logo-text">Beatflo</span>
           </div>
 
           <div className="header-actions">
