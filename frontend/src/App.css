@@ -1807,3 +1807,263 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-hover);
 }
+
+/* ==================== DJ Features ==================== */
+
+/* DJ Stats Bar */
+.dj-stats-bar {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.dj-stat {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.dj-stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.dj-stat-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+}
+
+.analyze-btn {
+  margin-left: auto;
+  padding: 0.5rem 1rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15), rgba(6, 182, 212, 0.15));
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: var(--radius-md);
+  color: var(--primary-light);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-main);
+}
+
+.analyze-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.25), rgba(6, 182, 212, 0.25));
+  border-color: var(--primary);
+}
+
+.analyze-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Energy Flow Graph */
+.energy-flow-graph {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 1rem;
+  margin-bottom: 1rem;
+}
+
+.energy-flow-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-bottom: 0.75rem;
+}
+
+.energy-flow-bars {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  height: 80px;
+  padding: 0 0.5rem;
+}
+
+.energy-bar-container {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100%;
+  cursor: pointer;
+}
+
+.energy-bar {
+  width: 100%;
+  max-width: 30px;
+  border-radius: 4px 4px 0 0;
+  transition: all 0.3s ease;
+  min-height: 8px;
+}
+
+.energy-bar-container:hover .energy-bar {
+  transform: scaleY(1.1);
+  filter: brightness(1.2);
+}
+
+.energy-bar-num {
+  font-size: 0.65rem;
+  color: var(--text-muted);
+  margin-top: 4px;
+  font-family: var(--font-mono);
+}
+
+/* Track DJ Tags */
+.track-dj-tags {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.dj-tag {
+  font-size: 0.7rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: var(--radius-sm);
+  font-weight: 500;
+  font-family: var(--font-mono);
+}
+
+.dj-tag.bpm {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--primary-light);
+}
+
+.dj-tag.key {
+  background: rgba(34, 211, 238, 0.15);
+  color: var(--accent);
+}
+
+.dj-tag.energy {
+  background: rgba(251, 191, 36, 0.15);
+  color: #FCD34D;
+}
+
+.dj-tag.energy[data-energy="9"],
+.dj-tag.energy[data-energy="10"] {
+  background: rgba(239, 68, 68, 0.15);
+  color: #F87171;
+}
+
+.dj-tag.energy[data-energy="1"],
+.dj-tag.energy[data-energy="2"],
+.dj-tag.energy[data-energy="3"] {
+  background: rgba(139, 92, 246, 0.15);
+  color: var(--primary-light);
+}
+
+.dj-tag.genre {
+  background: rgba(236, 72, 153, 0.15);
+  color: #F472B6;
+}
+
+/* Save Setlist Button */
+.flow-btn.save-setlist {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.15), rgba(5, 150, 105, 0.15));
+  border: 1px solid rgba(16, 185, 129, 0.3);
+  color: #34D399;
+}
+
+.flow-btn.save-setlist:hover {
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.25), rgba(5, 150, 105, 0.25));
+  border-color: #10B981;
+  transform: translateY(-2px);
+  box-shadow: 0 0 20px rgba(16, 185, 129, 0.3);
+}
+
+/* Setlist Form */
+.setlist-form {
+  margin-bottom: 1.5rem;
+}
+
+.setlist-label {
+  display: block;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-bottom: 0.5rem;
+}
+
+.setlist-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-primary);
+  font-size: 1rem;
+  font-family: var(--font-main);
+  transition: all 0.2s ease;
+}
+
+.setlist-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(139, 92, 246, 0.1);
+}
+
+.setlist-input::placeholder {
+  color: var(--text-muted);
+}
+
+.setlist-summary {
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 1rem;
+}
+
+.setlist-summary-item {
+  display: flex;
+  justify-content: space-between;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid var(--border);
+  font-size: 0.9rem;
+}
+
+.setlist-summary-item:last-child {
+  border-bottom: none;
+}
+
+.setlist-summary-item span:first-child {
+  color: var(--text-secondary);
+}
+
+.setlist-summary-item span:last-child {
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+/* Responsive DJ Features */
+@media (max-width: 768px) {
+  .dj-stats-bar {
+    gap: 1rem;
+    justify-content: space-between;
+  }
+
+  .analyze-btn {
+    width: 100%;
+    margin-left: 0;
+    margin-top: 0.5rem;
+  }
+
+  .energy-flow-bars {
+    gap: 2px;
+  }
+
+  .track-dj-tags {
+    gap: 0.25rem;
+  }
+
+  .dj-tag {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.4rem;
+  }
+}

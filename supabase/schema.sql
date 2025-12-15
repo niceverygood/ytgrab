@@ -41,10 +41,23 @@ create table if not exists recommendations (
   created_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
 
+-- Setlists table (세트리스트)
+create table if not exists setlists (
+  id uuid default uuid_generate_v4() primary key,
+  user_id uuid references auth.users(id) on delete cascade not null,
+  name text not null,
+  description text,
+  tracks jsonb not null,
+  total_duration integer default 0,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
+  updated_at timestamp with time zone default timezone('utc'::text, now()) not null
+);
+
 -- Row Level Security (RLS) 활성화
 alter table downloads enable row level security;
 alter table favorites enable row level security;
 alter table recommendations enable row level security;
+alter table setlists enable row level security;
 
 -- RLS Policies for downloads
 create policy "Users can view own downloads"
@@ -85,6 +98,23 @@ create policy "Users can delete own recommendations"
   on recommendations for delete
   using (auth.uid() = user_id);
 
+-- RLS Policies for setlists
+create policy "Users can view own setlists"
+  on setlists for select
+  using (auth.uid() = user_id);
+
+create policy "Users can insert own setlists"
+  on setlists for insert
+  with check (auth.uid() = user_id);
+
+create policy "Users can update own setlists"
+  on setlists for update
+  using (auth.uid() = user_id);
+
+create policy "Users can delete own setlists"
+  on setlists for delete
+  using (auth.uid() = user_id);
+
 -- Indexes for better performance
 create index if not exists downloads_user_id_idx on downloads(user_id);
 create index if not exists downloads_created_at_idx on downloads(created_at desc);
@@ -92,4 +122,6 @@ create index if not exists favorites_user_id_idx on favorites(user_id);
 create index if not exists favorites_video_id_idx on favorites(video_id);
 create index if not exists recommendations_user_id_idx on recommendations(user_id);
 create index if not exists recommendations_created_at_idx on recommendations(created_at desc);
+create index if not exists setlists_user_id_idx on setlists(user_id);
+create index if not exists setlists_created_at_idx on setlists(created_at desc);
 

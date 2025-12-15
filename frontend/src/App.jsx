@@ -2,7 +2,7 @@ import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import AuthModal from './components/AuthModal'
 import HistoryModal from './components/HistoryModal'
-import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite, saveRecommendation } from './lib/supabase'
+import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite, saveRecommendation, createSetlist, getSetlists } from './lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -54,6 +54,16 @@ function App() {
   
   // Preview state
   const [previewTrack, setPreviewTrack] = useState(null)
+  
+  // DJ Analysis state (A: BPM/Key/Energy)
+  const [trackAnalysis, setTrackAnalysis] = useState({}) // { videoId: { bpm, key, energy, genre, mood } }
+  const [analyzingTracks, setAnalyzingTracks] = useState(false)
+  
+  // Setlist state (C: 세트리스트)
+  const [showSetlistModal, setShowSetlistModal] = useState(false)
+  const [setlistName, setSetlistName] = useState('')
+  const [savedSetlists, setSavedSetlists] = useState([])
+  const [showSetlistsPanel, setShowSetlistsPanel] = useState(false)
 
   const progressInterval = useRef(null)
   const bulkProgressInterval = useRef(null)
@@ -177,6 +187,112 @@ function App() {
     } finally {
       setLoadingRecs(false)
     }
+  }
+
+  // A) Analyze tracks for BPM/Key/Energy
+  const analyzeTracks = async (tracks) => {
+    if (!tracks || tracks.length === 0) return
+    
+    setAnalyzingTracks(true)
+    
+    try {
+      const response = await fetch(`${API_BASE}/analyze-tracks`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tracks: tracks.map(t => ({ title: t.title, artist: t.artist }))
+        })
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.tracks) {
+        const analysisMap = {}
+        data.tracks.forEach((t, idx) => {
+          const videoId = tracks[idx]?.videoId
+          if (videoId) {
+            analysisMap[videoId] = {
+              bpm: t.bpm,
+              key: t.key,
+              energy: t.energy,
+              genre: t.genre,
+              mood: t.mood
+            }
+          }
+        })
+        setTrackAnalysis(prev => ({ ...prev, ...analysisMap }))
+      }
+    } catch (err) {
+      console.error('Track analysis error:', err)
+    } finally {
+      setAnalyzingTracks(false)
+    }
+  }
+
+  // B) Calculate total set time
+  const calculateSetTime = () => {
+    return recommendations.reduce((total, track) => total + (track.duration || 0), 0)
+  }
+
+  // C) Save setlist
+  const saveSetlist = async () => {
+    if (!user) {
+      setShowAuthModal(true)
+      return
+    }
+    
+    if (!setlistName.trim()) {
+      setError('Please enter a setlist name')
+      return
+    }
+
+    const tracksWithAnalysis = recommendations.map(track => ({
+      ...track,
+      analysis: trackAnalysis[track.videoId] || null
+    }))
+
+    try {
+      const { data, error: saveError } = await createSetlist(user.id, {
+        name: setlistName,
+        tracks: tracksWithAnalysis,
+        totalDuration: calculateSetTime()
+      })
+
+      if (saveError) throw saveError
+
+      setShowSetlistModal(false)
+      setSetlistName('')
+      setError('') // Clear any errors
+      // Show success message briefly
+      setError('✅ Setlist saved!')
+      setTimeout(() => setError(''), 2000)
+    } catch (err) {
+      setError('Failed to save setlist: ' + err.message)
+    }
+  }
+
+  // Load saved setlists
+  const loadSetlists = async () => {
+    if (!user) return
+    
+    const { data, error: loadError } = await getSetlists(user.id)
+    if (!loadError && data) {
+      setSavedSetlists(data)
+    }
+  }
+
+  // Load setlist into recommendations
+  const loadSetlistToRecommendations = (setlist) => {
+    setRecommendations(setlist.tracks)
+    // Also load analysis data
+    const analysisMap = {}
+    setlist.tracks.forEach(track => {
+      if (track.videoId && track.analysis) {
+        analysisMap[track.videoId] = track.analysis
+      }
+    })
+    setTrackAnalysis(prev => ({ ...prev, ...analysisMap }))
+    setShowSetlistsPanel(false)
   }
 
   // Download functions
@@ -727,8 +843,78 @@ function App() {
               </div>
             ) : recommendations.length > 0 ? (
               <>
+                {/* DJ Stats Bar */}
+                <div className="dj-stats-bar">
+                  <div className="dj-stat">
+                    <span className="dj-stat-label">🎵 Tracks</span>
+                    <span className="dj-stat-value">{recommendations.length}</span>
+                  </div>
+                  <div className="dj-stat">
+                    <span className="dj-stat-label">⏱️ Set Time</span>
+                    <span className="dj-stat-value">{formatDuration(calculateSetTime())}</span>
+                  </div>
+                  {Object.keys(trackAnalysis).length > 0 && (
+                    <>
+                      <div className="dj-stat">
+                        <span className="dj-stat-label">🎹 BPM Range</span>
+                        <span className="dj-stat-value">
+                          {(() => {
+                            const bpms = recommendations.map(r => trackAnalysis[r.videoId]?.bpm).filter(Boolean)
+                            if (bpms.length === 0) return '-'
+                            return `${Math.min(...bpms)}-${Math.max(...bpms)}`
+                          })()}
+                        </span>
+                      </div>
+                      <div className="dj-stat">
+                        <span className="dj-stat-label">⚡ Avg Energy</span>
+                        <span className="dj-stat-value">
+                          {(() => {
+                            const energies = recommendations.map(r => trackAnalysis[r.videoId]?.energy).filter(Boolean)
+                            if (energies.length === 0) return '-'
+                            return (energies.reduce((a, b) => a + b, 0) / energies.length).toFixed(1)
+                          })()}
+                        </span>
+                      </div>
+                    </>
+                  )}
+                  <button 
+                    className="analyze-btn"
+                    onClick={() => analyzeTracks(recommendations)}
+                    disabled={analyzingTracks}
+                  >
+                    {analyzingTracks ? '분석중...' : '🔍 AI 분석'}
+                  </button>
+                </div>
+
+                {/* D) Energy Flow Graph */}
+                {Object.keys(trackAnalysis).length > 0 && (
+                  <div className="energy-flow-graph">
+                    <div className="energy-flow-label">⚡ Energy Flow</div>
+                    <div className="energy-flow-bars">
+                      {recommendations.map((rec, idx) => {
+                        const analysis = trackAnalysis[rec.videoId]
+                        const energy = analysis?.energy || 5
+                        return (
+                          <div key={idx} className="energy-bar-container" title={`${rec.title} - Energy: ${energy}`}>
+                            <div 
+                              className="energy-bar" 
+                              style={{ 
+                                height: `${energy * 10}%`,
+                                background: energy >= 8 ? '#EF4444' : energy >= 6 ? '#F59E0B' : energy >= 4 ? '#22D3EE' : '#8B5CF6'
+                              }}
+                            ></div>
+                            <span className="energy-bar-num">{idx + 1}</span>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
                 <div className="track-list">
-                  {recommendations.map((rec, idx) => (
+                  {recommendations.map((rec, idx) => {
+                    const analysis = trackAnalysis[rec.videoId]
+                    return (
                     <div key={rec.videoId || idx} className="track-item">
                       <div className="track-num">{idx + 1}</div>
                       <div className="track-thumb">
@@ -740,6 +926,15 @@ function App() {
                       <div className="track-info">
                         <h4>{rec.title}</h4>
                         <p>{rec.artist}</p>
+                        {/* DJ Info Tags */}
+                        {analysis && (
+                          <div className="track-dj-tags">
+                            <span className="dj-tag bpm">🎹 {analysis.bpm}</span>
+                            <span className="dj-tag key">🔑 {analysis.key}</span>
+                            <span className="dj-tag energy" data-energy={analysis.energy}>⚡ {analysis.energy}</span>
+                            {analysis.genre && <span className="dj-tag genre">{analysis.genre}</span>}
+                          </div>
+                        )}
                       </div>
                       <div className="track-actions">
                         <button 
@@ -759,7 +954,8 @@ function App() {
                         </button>
                       </div>
                     </div>
-                  ))}
+                  )})}
+                  
                 </div>
 
                 {/* Flow Actions */}
@@ -794,6 +990,14 @@ function App() {
                     ) : (
                       `Download All (${recommendations.length})`
                     )}
+                  </button>
+
+                  <button 
+                    className="flow-btn save-setlist"
+                    onClick={() => setShowSetlistModal(true)}
+                  >
+                    <svg viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/><path d="M17 21v-8H7v8M7 3v5h8" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    Save Setlist
                   </button>
                 </div>
 
@@ -1137,6 +1341,69 @@ function App() {
                 </button>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {/* Setlist Save Modal */}
+      {showSetlistModal && (
+        <div className="modal-overlay" onClick={() => setShowSetlistModal(false)}>
+          <div className="modal" onClick={e => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setShowSetlistModal(false)}>
+              <svg viewBox="0 0 24 24" fill="none"><path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+            </button>
+
+            <div className="modal-header">
+              <div className="modal-icon primary">
+                <svg viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+              </div>
+              <div className="modal-header-text">
+                <h3>💾 Save Setlist</h3>
+                <p>Save your curated tracks for later</p>
+              </div>
+            </div>
+
+            <div className="modal-body">
+              <div className="setlist-form">
+                <label className="setlist-label">Setlist Name</label>
+                <input 
+                  type="text"
+                  className="setlist-input"
+                  placeholder="e.g., Friday Night Set, Chill Vibes..."
+                  value={setlistName}
+                  onChange={(e) => setSetlistName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+
+              <div className="setlist-summary">
+                <div className="setlist-summary-item">
+                  <span>🎵 Tracks</span>
+                  <span>{recommendations.length}</span>
+                </div>
+                <div className="setlist-summary-item">
+                  <span>⏱️ Total Time</span>
+                  <span>{formatDuration(calculateSetTime())}</span>
+                </div>
+                {Object.keys(trackAnalysis).length > 0 && (
+                  <div className="setlist-summary-item">
+                    <span>🔍 AI Analyzed</span>
+                    <span>✓</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button 
+                className="download-action-btn"
+                onClick={saveSetlist}
+                disabled={!setlistName.trim()}
+              >
+                <svg viewBox="0 0 24 24" fill="none"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                Save Setlist
+              </button>
+            </div>
           </div>
         </div>
       )}

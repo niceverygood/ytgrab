@@ -544,6 +544,99 @@ async function searchYouTube(query, maxDuration = 600) {
   });
 }
 
+// Analyze tracks for DJ info (BPM, Key, Energy)
+app.post('/api/analyze-tracks', async (req, res) => {
+  const { tracks } = req.body;
+  
+  if (!tracks || !Array.isArray(tracks) || tracks.length === 0) {
+    return res.status(400).json({ error: 'Tracks array is required' });
+  }
+
+  if (!hasAI) {
+    return res.status(503).json({ error: 'AI not available' });
+  }
+
+  const trackList = tracks.map((t, i) => `${i + 1}. "${t.title}" by ${t.artist}`).join('\n');
+  
+  const prompt = `You are a music analysis expert. Analyze these tracks and estimate their DJ-relevant properties.
+
+TRACKS:
+${trackList}
+
+For each track, estimate:
+- BPM (beats per minute, typical range 70-180)
+- Key (using Camelot notation like 8A, 11B, etc.)
+- Energy level (1-10, where 1 is very chill and 10 is peak energy)
+- Genre/mood tags
+
+Return ONLY a JSON object:
+{
+  "tracks": [
+    {
+      "index": 0,
+      "title": "Song Title",
+      "artist": "Artist",
+      "bpm": 128,
+      "key": "8A",
+      "energy": 7,
+      "genre": "House",
+      "mood": "Energetic"
+    }
+  ]
+}
+
+Be accurate based on the song titles and artists. If unsure, make a reasonable estimate based on the artist's typical style.`;
+
+  let content = null;
+  const maxTokens = Math.min(4000, 500 + tracks.length * 100);
+
+  try {
+    content = await tryGemini(prompt, maxTokens);
+  } catch (err) {
+    console.log('Analyze: Gemini failed:', err.message);
+  }
+
+  if (!content) {
+    try {
+      content = await tryClaude(prompt, maxTokens);
+    } catch (err) {
+      console.log('Analyze: Claude failed:', err.message);
+    }
+  }
+
+  if (!content) {
+    try {
+      content = await tryOpenAI(prompt, maxTokens);
+    } catch (err) {
+      console.log('Analyze: OpenAI failed:', err.message);
+      return res.status(500).json({ error: 'All AI services failed' });
+    }
+  }
+
+  try {
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (!jsonMatch) {
+      throw new Error('No JSON found in response');
+    }
+    
+    const result = JSON.parse(jsonMatch[0]);
+    
+    // Merge analysis with original track data
+    if (result.tracks) {
+      result.tracks = result.tracks.map((analyzed, idx) => ({
+        ...tracks[idx],
+        ...analyzed,
+        originalIndex: idx
+      }));
+    }
+    
+    res.json(result);
+  } catch (err) {
+    console.error('Analyze JSON parse error:', err);
+    res.status(500).json({ error: 'Failed to parse AI response' });
+  }
+});
+
 // DJ Mix Order recommendation - AI suggests optimal track order for seamless mixing
 app.post('/api/dj-order', async (req, res) => {
   const { tracks } = req.body;

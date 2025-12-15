@@ -129,3 +129,58 @@ export const getRecommendationHistory = async (userId) => {
   return { data, error }
 }
 
+// Setlists (세트리스트)
+export const createSetlist = async (userId, setlistData) => {
+  const { data, error } = await supabase
+    .from('setlists')
+    .insert({
+      user_id: userId,
+      name: setlistData.name,
+      description: setlistData.description || '',
+      tracks: setlistData.tracks,
+      total_duration: setlistData.totalDuration || 0
+    })
+    .select()
+    .single()
+  return { data, error }
+}
+
+export const getSetlists = async (userId) => {
+  const { data, error } = await supabase
+    .from('setlists')
+    .select('*')
+    .eq('user_id', userId)
+    .order('updated_at', { ascending: false })
+  return { data, error }
+}
+
+export const getSetlist = async (setlistId) => {
+  const { data, error } = await supabase
+    .from('setlists')
+    .select('*')
+    .eq('id', setlistId)
+    .single()
+  return { data, error }
+}
+
+export const updateSetlist = async (setlistId, updates) => {
+  const { data, error } = await supabase
+    .from('setlists')
+    .update({
+      ...updates,
+      updated_at: new Date().toISOString()
+    })
+    .eq('id', setlistId)
+    .select()
+    .single()
+  return { data, error }
+}
+
+export const deleteSetlist = async (setlistId) => {
+  const { error } = await supabase
+    .from('setlists')
+    .delete()
+    .eq('id', setlistId)
+  return { error }
+}
+
