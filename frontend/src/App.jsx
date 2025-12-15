@@ -14,6 +14,7 @@ function App() {
   const [showHistoryModal, setShowHistoryModal] = useState(false)
   const [historyTab, setHistoryTab] = useState('downloads')
   const [isFav, setIsFav] = useState(false)
+  const [recFavorites, setRecFavorites] = useState({}) // 추천곡 즐겨찾기 상태
   
   const [url, setUrl] = useState('')
   const [videoInfo, setVideoInfo] = useState(null)
@@ -264,6 +265,51 @@ function App() {
       setIsFav(true)
     }
   }
+
+  // Toggle favorite for recommendation
+  const toggleRecFavorite = async (rec) => {
+    if (!user) {
+      setShowAuthModal(true)
+      return
+    }
+    
+    const videoId = rec.videoId
+    if (!videoId) return
+
+    const isCurrentlyFav = recFavorites[videoId]
+    
+    if (isCurrentlyFav) {
+      await removeFavorite(user.id, videoId)
+      setRecFavorites(prev => ({ ...prev, [videoId]: false }))
+    } else {
+      await addFavorite(user.id, {
+        videoId,
+        title: rec.title,
+        thumbnail: rec.thumbnail,
+        uploader: rec.artist,
+        duration: rec.duration,
+        url: rec.url
+      })
+      setRecFavorites(prev => ({ ...prev, [videoId]: true }))
+    }
+  }
+
+  // Check favorites for recommendations when they load
+  useEffect(() => {
+    const checkRecFavorites = async () => {
+      if (user && recommendations.length > 0) {
+        const favStatus = {}
+        for (const rec of recommendations) {
+          if (rec.videoId) {
+            const { isFavorite: fav } = await isFavorite(user.id, rec.videoId)
+            favStatus[rec.videoId] = fav
+          }
+        }
+        setRecFavorites(favStatus)
+      }
+    }
+    checkRecFavorites()
+  }, [user, recommendations])
 
   // Save download to history
   const saveDownloadHistory = async (format) => {
@@ -954,25 +1000,40 @@ function App() {
                         )}
                       </div>
                     </a>
-                    <button 
-                      className={`rec-download-btn ${downloadingRec === rec.videoId ? 'downloading' : ''}`}
-                      onClick={(e) => {
-                        e.preventDefault()
-                        e.stopPropagation()
-                        openRecDownloadModal(rec)
-                      }}
-                      disabled={downloadingRec === rec.videoId}
-                    >
-                      {downloadingRec === rec.videoId ? (
-                        <span className="spinner small"></span>
-                      ) : (
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                          <path d="M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <div className="rec-actions">
+                      <button 
+                        className={`rec-fav-btn ${recFavorites[rec.videoId] ? 'active' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          toggleRecFavorite(rec)
+                        }}
+                        title={recFavorites[rec.videoId] ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                      >
+                        <svg viewBox="0 0 24 24" fill={recFavorites[rec.videoId] ? 'currentColor' : 'none'}>
+                          <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                         </svg>
-                      )}
-                    </button>
+                      </button>
+                      <button 
+                        className={`rec-download-btn ${downloadingRec === rec.videoId ? 'downloading' : ''}`}
+                        onClick={(e) => {
+                          e.preventDefault()
+                          e.stopPropagation()
+                          openRecDownloadModal(rec)
+                        }}
+                        disabled={downloadingRec === rec.videoId}
+                      >
+                        {downloadingRec === rec.videoId ? (
+                          <span className="spinner small"></span>
+                        ) : (
+                          <svg viewBox="0 0 24 24" fill="none">
+                            <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                            <path d="M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                          </svg>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

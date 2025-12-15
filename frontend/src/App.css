@@ -1058,10 +1058,50 @@
   font-size: 0.75rem;
 }
 
+.rec-actions {
+  display: flex;
+  gap: 0.5rem;
+  margin-left: 0.75rem;
+  flex-shrink: 0;
+}
+
+.rec-fav-btn {
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.1);
+  border: none;
+  border-radius: 10px;
+  color: #888;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rec-fav-btn:hover {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+  transform: scale(1.05);
+}
+
+.rec-fav-btn.active {
+  background: rgba(255, 107, 107, 0.2);
+  color: #ff6b6b;
+}
+
+.rec-fav-btn.active:hover {
+  background: rgba(255, 107, 107, 0.3);
+}
+
+.rec-fav-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
 .rec-download-btn {
-  width: 44px;
-  height: 44px;
-  margin-left: 1rem;
+  width: 40px;
+  height: 40px;
   display: flex;
   align-items: center;
   justify-content: center;
