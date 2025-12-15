@@ -318,15 +318,16 @@ function App() {
     checkRecFavorites()
   }, [user, recommendations])
 
-  // Create mixset with crossfade
+  // Create mixset with crossfade (max 10 tracks)
   const createMixset = async () => {
     if (recommendations.length < 2) return
     
-    // Use DJ order if available, otherwise use current order
-    const tracksToMix = djOrder?.orderedTracks || recommendations.map((rec, idx) => ({
+    // Use DJ order if available, otherwise use current order (limit to 10)
+    const allTracks = djOrder?.orderedTracks || recommendations.map((rec, idx) => ({
       ...rec,
       position: idx + 1
     }))
+    const tracksToMix = allTracks.slice(0, 10) // Max 10 tracks for mixset
     
     setMixsetProgress({ status: 'starting', phase: 'Starting...' })
     
@@ -1050,13 +1051,17 @@ function App() {
                           </svg>
                           {loadingDJ ? 'AI 분석중...' : 'DJ Order'}
                         </button>
-                        <button className="create-mixset-btn" onClick={() => setShowMixsetModal(true)}>
+                        <button 
+                          className={`create-mixset-btn ${recommendations.length > 10 ? 'disabled' : ''}`}
+                          onClick={() => recommendations.length <= 10 && setShowMixsetModal(true)}
+                          title={recommendations.length > 10 ? '최대 10곡까지만 믹스셋 제작 가능' : 'Create Mixset'}
+                        >
                           <svg viewBox="0 0 24 24" fill="none">
                             <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
                             <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
                             <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                           </svg>
-                          Create Mixset
+                          Mixset {recommendations.length > 10 ? '(≤10곡)' : ''}
                         </button>
                       </>
                     )}
@@ -1556,6 +1561,7 @@ function App() {
               <div>
                 <h3>🎛️ Create Mixset</h3>
                 <p>선택한 곡들을 크로스페이드로 하나의 믹스셋으로 제작</p>
+                <span className="mixset-limit-badge">⚠️ 최대 10곡</span>
               </div>
             </div>
 
@@ -1564,7 +1570,10 @@ function App() {
                 <div className="mixset-settings">
                   <div className="mixset-info">
                     <span className="mixset-label">📀 Tracks to mix</span>
-                    <p>{djOrder?.orderedTracks?.length || recommendations.length} songs{djOrder && ' (DJ Order 적용됨)'}</p>
+                    <p>{Math.min(djOrder?.orderedTracks?.length || recommendations.length, 10)} songs{djOrder && ' (DJ Order 적용됨)'}</p>
+                    {(djOrder?.orderedTracks?.length || recommendations.length) > 10 && (
+                      <span className="mixset-warning">처음 10곡만 믹스됩니다</span>
+                    )}
                   </div>
                   
                   <div className="mixset-option">
