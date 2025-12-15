@@ -361,9 +361,10 @@ function App() {
             current_title: progressData.current || ''
           })
 
-          if (progressData.status === 'completed') {
+          if (progressData.status === 'completed' || progressData.zipFile) {
             clearInterval(bulkProgressInterval.current)
             setZipReady(true)
+            console.log('ZIP ready:', progressData)
           } else if (progressData.status === 'error') {
             clearInterval(bulkProgressInterval.current)
             setDownloadingAll(false)
