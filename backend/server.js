@@ -341,32 +341,37 @@ Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Ar
 }
 
 // Try Gemini API
-async function tryGemini(prompt) {
+async function tryGemini(prompt, maxTokens = 4000) {
   if (!genAI) throw new Error('Gemini API key not configured');
-  const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
+  const model = genAI.getGenerativeModel({ 
+    model: 'gemini-2.0-flash',
+    generationConfig: {
+      maxOutputTokens: maxTokens,
+    }
+  });
   const result = await model.generateContent(prompt);
   const response = await result.response;
   return response.text();
 }
 
 // Try Claude API
-async function tryClaude(prompt) {
+async function tryClaude(prompt, maxTokens = 4000) {
   if (!anthropic) throw new Error('Claude API key not configured');
   const message = await anthropic.messages.create({
     model: 'claude-sonnet-4-20250514',
-    max_tokens: 2000,
+    max_tokens: maxTokens,
     messages: [{ role: 'user', content: prompt }]
   });
   return message.content[0].text;
 }
 
 // Try OpenAI API
-async function tryOpenAI(prompt) {
+async function tryOpenAI(prompt, maxTokens = 4000) {
   if (!openai) throw new Error('OpenAI API key not configured');
   const completion = await openai.chat.completions.create({
     model: 'gpt-4o-mini',
     messages: [{ role: 'user', content: prompt }],
-    max_tokens: 2000
+    max_tokens: maxTokens
   });
   return completion.choices[0].message.content;
 }
@@ -556,7 +561,27 @@ app.post('/api/dj-order', async (req, res) => {
 
   const trackList = tracks.map((t, i) => `${i + 1}. "${t.title}" by ${t.artist}`).join('\n');
   
-  const prompt = `You are a professional DJ and music mixing expert. Analyze the following tracks and suggest the optimal order for a seamless DJ mix/set.
+  // For many tracks, use a simpler prompt to avoid token limits
+  const isLargeSet = tracks.length > 15;
+  
+  const prompt = isLargeSet 
+    ? `You are a professional DJ. Order these ${tracks.length} tracks for optimal DJ mixing flow (BPM, key, energy progression).
+
+TRACKS:
+${trackList}
+
+Return ONLY a JSON object:
+{
+  "orderedTracks": [
+    {"position": 1, "originalIndex": 0, "title": "Song Title", "artist": "Artist Name"}
+  ],
+  "mixingTips": ["Tip 1", "Tip 2", "Tip 3"],
+  "estimatedBPMRange": "120-128 BPM",
+  "overallVibe": "Brief vibe description"
+}
+
+IMPORTANT: Include ALL ${tracks.length} tracks in orderedTracks array. Keep it compact - no reason field needed.`
+    : `You are a professional DJ and music mixing expert. Analyze the following tracks and suggest the optimal order for a seamless DJ mix/set.
 
 TRACKS TO ORDER:
 ${trackList}
@@ -591,11 +616,14 @@ Return ONLY a JSON object in this exact format (no other text):
 Order all ${tracks.length} tracks for the best DJ mix flow.`;
 
   let content = null;
+  
+  // Calculate max tokens based on track count (more tracks = more output needed)
+  const maxTokens = Math.min(8000, 1500 + tracks.length * 100);
 
   // Try Gemini first
   try {
-    console.log('DJ Order: Trying Gemini...');
-    content = await tryGemini(prompt);
+    console.log(`DJ Order: Trying Gemini (${tracks.length} tracks, maxTokens: ${maxTokens})...`);
+    content = await tryGemini(prompt, maxTokens);
     console.log('DJ Order: Gemini success');
   } catch (err) {
     console.log('DJ Order: Gemini failed:', err.message);
@@ -605,7 +633,7 @@ Order all ${tracks.length} tracks for the best DJ mix flow.`;
   if (!content) {
     try {
       console.log('DJ Order: Trying Claude...');
-      content = await tryClaude(prompt);
+      content = await tryClaude(prompt, maxTokens);
       console.log('DJ Order: Claude success');
     } catch (err) {
       console.log('DJ Order: Claude failed:', err.message);
@@ -616,7 +644,7 @@ Order all ${tracks.length} tracks for the best DJ mix flow.`;
   if (!content) {
     try {
       console.log('DJ Order: Trying OpenAI...');
-      content = await tryOpenAI(prompt);
+      content = await tryOpenAI(prompt, maxTokens);
       console.log('DJ Order: OpenAI success');
     } catch (err) {
       console.log('DJ Order: OpenAI failed:', err.message);
