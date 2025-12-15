@@ -904,12 +904,17 @@ function App() {
                         {recommendations.map((rec, idx) => {
                           const analysis = trackAnalysis[rec.videoId]
                           const energy = analysis?.energy || 5
-                          const energyLabel = energy >= 8 ? 'Peak!' : energy >= 6 ? 'High' : energy >= 4 ? 'Mid' : 'Chill'
+                          const energyLabel = energy >= 8 ? '🔥 Peak - 최고조!' : energy >= 6 ? '💃 High - 신나는 구간' : energy >= 4 ? '🕺 Mid - 중간 템포' : '😌 Chill - 차분한 구간'
+                          const energyEmoji = energy >= 8 ? '🔥' : energy >= 6 ? '💃' : energy >= 4 ? '🕺' : '😌'
                           return (
                             <div key={idx} className="energy-bar-container">
                               <div className="energy-bar-tooltip">
                                 <strong>{rec.title}</strong>
-                                <span>Energy: {energy}/10 ({energyLabel})</span>
+                                <div className="tooltip-energy">
+                                  <span>{energyEmoji}</span>
+                                  <span>Energy {energy}/10</span>
+                                </div>
+                                <span className="tooltip-label">{energyLabel}</span>
                               </div>
                               <div 
                                 className="energy-bar" 
