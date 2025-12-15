@@ -2216,6 +2216,231 @@ body {
   font-weight: 500;
 }
 
+/* ==================== NEW DJ Features ==================== */
+
+/* Filter Button */
+.filter-btn {
+  padding: 0.5rem 1rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-main);
+}
+
+.filter-btn:hover {
+  border-color: var(--border-hover);
+  color: var(--text-primary);
+}
+
+.filter-btn.active {
+  background: linear-gradient(135deg, rgba(34, 211, 238, 0.15), rgba(6, 182, 212, 0.15));
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* B) Smart Filters Panel */
+.filters-panel {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  animation: fadeIn 0.2s ease;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 150px;
+}
+
+.filter-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.range-inputs {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.range-inputs input[type="range"] {
+  flex: 1;
+  -webkit-appearance: none;
+  appearance: none;
+  height: 6px;
+  background: var(--bg-elevated);
+  border-radius: 3px;
+  cursor: pointer;
+}
+
+.range-inputs input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 16px;
+  height: 16px;
+  background: var(--accent);
+  border-radius: 50%;
+  cursor: pointer;
+  box-shadow: 0 0 8px rgba(34, 211, 238, 0.4);
+}
+
+.genre-select {
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  color: var(--text-primary);
+  font-size: 0.85rem;
+  cursor: pointer;
+  font-family: var(--font-main);
+}
+
+.genre-select:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+
+.reset-filters-btn {
+  padding: 0.5rem 1rem;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-main);
+}
+
+.reset-filters-btn:hover {
+  border-color: var(--text-secondary);
+  color: var(--text-secondary);
+}
+
+/* A) Harmonic Mixing - Key Compatibility */
+.dj-tag.key.compatible {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34D399;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.dj-tag.key.incompatible {
+  background: rgba(239, 68, 68, 0.2);
+  color: #F87171;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.key-match {
+  margin-left: 0.25rem;
+  font-weight: 700;
+}
+
+.key-clash {
+  margin-left: 0.25rem;
+}
+
+.harmonic-hint {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 0.35rem;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.track-item:hover .harmonic-hint {
+  opacity: 1;
+}
+
+/* C) Track Preview Button */
+.track-btn.preview:hover {
+  color: var(--primary-light);
+  border-color: rgba(139, 92, 246, 0.3);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.mini-play.playing {
+  opacity: 1 !important;
+  background: rgba(34, 211, 238, 0.8) !important;
+}
+
+.mini-play.playing svg {
+  color: white;
+}
+
+/* Inline Preview Player */
+.inline-preview-player {
+  position: sticky;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background: linear-gradient(135deg, var(--bg-card), var(--bg-elevated));
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-lg);
+  padding: 0.75rem 1rem;
+  margin-top: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: slideUp 0.3s ease;
+  box-shadow: 0 -5px 20px rgba(0, 0, 0, 0.3);
+}
+
+.inline-preview-info {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  color: var(--accent);
+  font-size: 0.9rem;
+}
+
+.inline-preview-info button {
+  padding: 0.4rem 0.8rem;
+  background: rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  border-radius: var(--radius-sm);
+  color: #F87171;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  font-family: var(--font-main);
+}
+
+.inline-preview-info button:hover {
+  background: rgba(239, 68, 68, 0.3);
+}
+
+.preview-wave {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  height: 20px;
+}
+
+.preview-wave span {
+  width: 3px;
+  background: var(--accent);
+  border-radius: 1px;
+  animation: wave 0.6s ease-in-out infinite;
+}
+
+.preview-wave span:nth-child(1) { height: 30%; animation-delay: 0s; }
+.preview-wave span:nth-child(2) { height: 60%; animation-delay: 0.1s; }
+.preview-wave span:nth-child(3) { height: 40%; animation-delay: 0.2s; }
+.preview-wave span:nth-child(4) { height: 80%; animation-delay: 0.3s; }
+.preview-wave span:nth-child(5) { height: 50%; animation-delay: 0.4s; }
+
 /* Responsive DJ Features */
 @media (max-width: 768px) {
   .dj-stats-bar {
@@ -2223,10 +2448,20 @@ body {
     justify-content: space-between;
   }
 
-  .analyze-btn {
+  .analyze-btn,
+  .filter-btn {
     width: 100%;
     margin-left: 0;
     margin-top: 0.5rem;
+  }
+
+  .filters-panel {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .filter-group {
+    width: 100%;
   }
 
   .energy-flow-bars {
@@ -2240,5 +2475,9 @@ body {
   .dj-tag {
     font-size: 0.65rem;
     padding: 0.15rem 0.4rem;
+  }
+
+  .harmonic-hint {
+    display: none;
   }
 }

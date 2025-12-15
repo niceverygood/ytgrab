@@ -54,6 +54,17 @@ function App() {
   
   // Preview state
   const [previewTrack, setPreviewTrack] = useState(null)
+  const [inlinePreview, setInlinePreview] = useState(null) // For inline audio preview
+  
+  // Filter state (B: Smart Filters)
+  const [filters, setFilters] = useState({
+    bpmMin: 0,
+    bpmMax: 200,
+    energyMin: 1,
+    energyMax: 10,
+    genre: 'all',
+    showFilters: false
+  })
   
   // DJ Analysis state (A: BPM/Key/Energy)
   const [trackAnalysis, setTrackAnalysis] = useState({}) // { videoId: { bpm, key, energy, genre, mood } }
@@ -107,6 +118,81 @@ function App() {
     if (views >= 1000000) return `${(views / 1000000).toFixed(1)}M`
     if (views >= 1000) return `${(views / 1000).toFixed(1)}K`
     return `${views}`
+  }
+
+  // A) Harmonic Mixing - Camelot Wheel compatibility
+  const getCompatibleKeys = (key) => {
+    if (!key) return []
+    const camelotWheel = {
+      '1A': ['12A', '1A', '2A', '1B'],
+      '2A': ['1A', '2A', '3A', '2B'],
+      '3A': ['2A', '3A', '4A', '3B'],
+      '4A': ['3A', '4A', '5A', '4B'],
+      '5A': ['4A', '5A', '6A', '5B'],
+      '6A': ['5A', '6A', '7A', '6B'],
+      '7A': ['6A', '7A', '8A', '7B'],
+      '8A': ['7A', '8A', '9A', '8B'],
+      '9A': ['8A', '9A', '10A', '9B'],
+      '10A': ['9A', '10A', '11A', '10B'],
+      '11A': ['10A', '11A', '12A', '11B'],
+      '12A': ['11A', '12A', '1A', '12B'],
+      '1B': ['12B', '1B', '2B', '1A'],
+      '2B': ['1B', '2B', '3B', '2A'],
+      '3B': ['2B', '3B', '4B', '3A'],
+      '4B': ['3B', '4B', '5B', '4A'],
+      '5B': ['4B', '5B', '6B', '5A'],
+      '6B': ['5B', '6B', '7B', '6A'],
+      '7B': ['6B', '7B', '8B', '7A'],
+      '8B': ['7B', '8B', '9B', '8A'],
+      '9B': ['8B', '9B', '10B', '9A'],
+      '10B': ['9B', '10B', '11B', '10A'],
+      '11B': ['10B', '11B', '12B', '11A'],
+      '12B': ['11B', '12B', '1B', '12A']
+    }
+    return camelotWheel[key] || []
+  }
+
+  const isKeyCompatible = (key1, key2) => {
+    if (!key1 || !key2) return false
+    const compatible = getCompatibleKeys(key1)
+    return compatible.includes(key2)
+  }
+
+  // B) Filter recommendations
+  const getFilteredRecommendations = () => {
+    if (!filters.showFilters) return recommendations
+    
+    return recommendations.filter(rec => {
+      const analysis = trackAnalysis[rec.videoId]
+      if (!analysis) return true // Show tracks without analysis
+      
+      // BPM filter
+      if (analysis.bpm) {
+        if (analysis.bpm < filters.bpmMin || analysis.bpm > filters.bpmMax) return false
+      }
+      
+      // Energy filter
+      if (analysis.energy) {
+        if (analysis.energy < filters.energyMin || analysis.energy > filters.energyMax) return false
+      }
+      
+      // Genre filter
+      if (filters.genre !== 'all' && analysis.genre) {
+        if (!analysis.genre.toLowerCase().includes(filters.genre.toLowerCase())) return false
+      }
+      
+      return true
+    })
+  }
+
+  // Get unique genres from analyzed tracks
+  const getUniqueGenres = () => {
+    const genres = new Set()
+    recommendations.forEach(rec => {
+      const analysis = trackAnalysis[rec.videoId]
+      if (analysis?.genre) genres.add(analysis.genre)
+    })
+    return Array.from(genres)
   }
 
   // Fetch video info
@@ -882,7 +968,9 @@ function App() {
                 <div className="dj-stats-bar">
                   <div className="dj-stat">
                     <span className="dj-stat-label">🎵 Tracks</span>
-                    <span className="dj-stat-value">{recommendations.length}</span>
+                    <span className="dj-stat-value">
+                      {filters.showFilters ? `${getFilteredRecommendations().length}/${recommendations.length}` : recommendations.length}
+                    </span>
                   </div>
                   <div className="dj-stat">
                     <span className="dj-stat-label">⏱️ Set Time</span>
@@ -919,7 +1007,82 @@ function App() {
                   >
                     {analyzingTracks ? '분석중...' : '🔍 AI 분석'}
                   </button>
+                  {Object.keys(trackAnalysis).length > 0 && (
+                    <button 
+                      className={`filter-btn ${filters.showFilters ? 'active' : ''}`}
+                      onClick={() => setFilters(prev => ({ ...prev, showFilters: !prev.showFilters }))}
+                    >
+                      🎚️ 필터
+                    </button>
+                  )}
                 </div>
+
+                {/* B) Smart Filters Panel */}
+                {filters.showFilters && Object.keys(trackAnalysis).length > 0 && (
+                  <div className="filters-panel">
+                    <div className="filter-group">
+                      <label className="filter-label">
+                        🎹 BPM Range: {filters.bpmMin} - {filters.bpmMax}
+                      </label>
+                      <div className="range-inputs">
+                        <input 
+                          type="range" 
+                          min="60" 
+                          max="200" 
+                          value={filters.bpmMin}
+                          onChange={(e) => setFilters(prev => ({ ...prev, bpmMin: parseInt(e.target.value) }))}
+                        />
+                        <input 
+                          type="range" 
+                          min="60" 
+                          max="200" 
+                          value={filters.bpmMax}
+                          onChange={(e) => setFilters(prev => ({ ...prev, bpmMax: parseInt(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="filter-group">
+                      <label className="filter-label">
+                        ⚡ Energy: {filters.energyMin} - {filters.energyMax}
+                      </label>
+                      <div className="range-inputs">
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={filters.energyMin}
+                          onChange={(e) => setFilters(prev => ({ ...prev, energyMin: parseInt(e.target.value) }))}
+                        />
+                        <input 
+                          type="range" 
+                          min="1" 
+                          max="10" 
+                          value={filters.energyMax}
+                          onChange={(e) => setFilters(prev => ({ ...prev, energyMax: parseInt(e.target.value) }))}
+                        />
+                      </div>
+                    </div>
+                    <div className="filter-group">
+                      <label className="filter-label">🎵 Genre</label>
+                      <select 
+                        value={filters.genre}
+                        onChange={(e) => setFilters(prev => ({ ...prev, genre: e.target.value }))}
+                        className="genre-select"
+                      >
+                        <option value="all">All Genres</option>
+                        {getUniqueGenres().map(genre => (
+                          <option key={genre} value={genre}>{genre}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <button 
+                      className="reset-filters-btn"
+                      onClick={() => setFilters({ bpmMin: 0, bpmMax: 200, energyMin: 1, energyMax: 10, genre: 'all', showFilters: true })}
+                    >
+                      ↻ Reset
+                    </button>
+                  </div>
+                )}
 
                 {/* D) Energy Flow Graph */}
                 {Object.keys(trackAnalysis).length > 0 && (
@@ -975,31 +1138,68 @@ function App() {
                 )}
 
                 <div className="track-list">
-                  {recommendations.map((rec, idx) => {
+                  {getFilteredRecommendations().map((rec, idx) => {
                     const analysis = trackAnalysis[rec.videoId]
+                    const prevTrack = idx > 0 ? getFilteredRecommendations()[idx - 1] : null
+                    const prevAnalysis = prevTrack ? trackAnalysis[prevTrack.videoId] : null
+                    const keyCompatible = prevAnalysis && analysis ? isKeyCompatible(prevAnalysis.key, analysis.key) : null
+                    
                     return (
                     <div key={rec.videoId || idx} className="track-item">
                       <div className="track-num">{idx + 1}</div>
+                      
+                      {/* C) Inline Preview */}
                       <div className="track-thumb">
                         <img src={rec.thumbnail} alt={rec.title} />
-                        <div className="mini-play" onClick={() => setPreviewTrack({ url: rec.url, title: `${rec.artist} - ${rec.title}` })}>
-                          <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                        <div 
+                          className={`mini-play ${inlinePreview === rec.videoId ? 'playing' : ''}`}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setInlinePreview(inlinePreview === rec.videoId ? null : rec.videoId)
+                          }}
+                        >
+                          {inlinePreview === rec.videoId ? (
+                            <svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+                          ) : (
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          )}
                         </div>
                       </div>
+                      
                       <div className="track-info">
                         <h4>{rec.title}</h4>
                         <p>{rec.artist}</p>
-                        {/* DJ Info Tags */}
+                        {/* DJ Info Tags with Harmonic Mixing Indicator */}
                         {analysis && (
                           <div className="track-dj-tags">
                             <span className="dj-tag bpm">🎹 {analysis.bpm}</span>
-                            <span className="dj-tag key">🔑 {analysis.key}</span>
+                            {/* A) Harmonic Mixing - Key with compatibility indicator */}
+                            <span className={`dj-tag key ${keyCompatible === true ? 'compatible' : keyCompatible === false ? 'incompatible' : ''}`}>
+                              🔑 {analysis.key}
+                              {keyCompatible === true && <span className="key-match">✓</span>}
+                              {keyCompatible === false && <span className="key-clash">⚠</span>}
+                            </span>
                             <span className="dj-tag energy" data-energy={analysis.energy}>⚡ {analysis.energy}</span>
                             {analysis.genre && <span className="dj-tag genre">{analysis.genre}</span>}
                           </div>
                         )}
+                        {/* Compatible keys hint */}
+                        {analysis?.key && (
+                          <div className="harmonic-hint">
+                            호환 키: {getCompatibleKeys(analysis.key).filter(k => k !== analysis.key).join(', ')}
+                          </div>
+                        )}
                       </div>
+                      
                       <div className="track-actions">
+                        {/* Full preview button */}
+                        <button 
+                          className="track-btn preview"
+                          onClick={() => setPreviewTrack({ url: rec.url, title: `${rec.artist} - ${rec.title}` })}
+                          title="Full Preview"
+                        >
+                          <svg viewBox="0 0 24 24" fill="none"><rect x="2" y="4" width="20" height="16" rx="2" stroke="currentColor" strokeWidth="2"/><path d="M10 9l5 3-5 3V9z" fill="currentColor"/></svg>
+                        </button>
                         <button 
                           className={`track-btn favorite ${recFavorites[rec.videoId] ? 'active' : ''}`}
                           onClick={() => toggleRecFavorite(rec)}
@@ -1019,6 +1219,23 @@ function App() {
                     </div>
                   )})}
                   
+                  {/* Inline audio preview player */}
+                  {inlinePreview && (
+                    <div className="inline-preview-player">
+                      <iframe
+                        src={`https://www.youtube.com/embed/${inlinePreview}?autoplay=1&start=30`}
+                        allow="autoplay; encrypted-media"
+                        style={{ display: 'none' }}
+                      />
+                      <div className="inline-preview-info">
+                        <div className="preview-wave">
+                          <span></span><span></span><span></span><span></span><span></span>
+                        </div>
+                        <span>🎧 미리듣기 중...</span>
+                        <button onClick={() => setInlinePreview(null)}>■ 정지</button>
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 {/* Flow Actions */}
