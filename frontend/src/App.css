@@ -1895,22 +1895,49 @@ body {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 1rem;
+  padding: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.energy-flow-header {
   margin-bottom: 1rem;
 }
 
 .energy-flow-label {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.energy-flow-desc {
   font-size: 0.8rem;
   color: var(--text-muted);
-  margin-bottom: 0.75rem;
+}
+
+.energy-flow-chart {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.energy-y-axis {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 0 0.5rem 20px 0;
+  font-size: 0.9rem;
 }
 
 .energy-flow-bars {
+  flex: 1;
   display: flex;
   align-items: flex-end;
-  gap: 4px;
-  height: 80px;
+  gap: 6px;
+  height: 100px;
   padding: 0 0.5rem;
+  background: rgba(139, 92, 246, 0.05);
+  border-radius: var(--radius-md);
+  position: relative;
 }
 
 .energy-bar-container {
@@ -1920,26 +1947,119 @@ body {
   align-items: center;
   height: 100%;
   cursor: pointer;
+  position: relative;
+}
+
+.energy-bar-tooltip {
+  position: absolute;
+  bottom: calc(100% + 10px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.5rem 0.75rem;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  opacity: 0;
+  visibility: hidden;
+  transition: all 0.2s ease;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.energy-bar-tooltip strong {
+  display: block;
+  color: var(--text-primary);
+  margin-bottom: 0.25rem;
+}
+
+.energy-bar-tooltip span {
+  color: var(--text-secondary);
+}
+
+.energy-bar-container:hover .energy-bar-tooltip {
+  opacity: 1;
+  visibility: visible;
 }
 
 .energy-bar {
   width: 100%;
-  max-width: 30px;
-  border-radius: 4px 4px 0 0;
+  max-width: 40px;
+  border-radius: 6px 6px 0 0;
   transition: all 0.3s ease;
-  min-height: 8px;
+  min-height: 10px;
+  display: flex;
+  align-items: flex-start;
+  justify-content: center;
+  position: relative;
+}
+
+.energy-value {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  padding-top: 4px;
+  opacity: 0;
+  transition: opacity 0.2s ease;
+}
+
+.energy-bar-container:hover .energy-value {
+  opacity: 1;
 }
 
 .energy-bar-container:hover .energy-bar {
-  transform: scaleY(1.1);
-  filter: brightness(1.2);
+  transform: scaleY(1.05);
+  filter: brightness(1.15);
+  box-shadow: 0 0 15px currentColor;
 }
 
 .energy-bar-num {
-  font-size: 0.65rem;
+  font-size: 0.7rem;
   color: var(--text-muted);
-  margin-top: 4px;
+  margin-top: 6px;
   font-family: var(--font-mono);
+  font-weight: 500;
+}
+
+/* Energy Legend */
+.energy-legend {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid var(--border);
+  flex-wrap: wrap;
+}
+
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.75rem;
+  color: var(--text-secondary);
+}
+
+.legend-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.legend-dot.peak {
+  background: #EF4444;
+}
+
+.legend-dot.high {
+  background: #F59E0B;
+}
+
+.legend-dot.mid {
+  background: #22D3EE;
+}
+
+.legend-dot.chill {
+  background: #8B5CF6;
 }
 
 /* Track DJ Tags */

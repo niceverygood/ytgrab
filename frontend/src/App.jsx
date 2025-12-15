@@ -890,24 +890,47 @@ function App() {
                 {/* D) Energy Flow Graph */}
                 {Object.keys(trackAnalysis).length > 0 && (
                   <div className="energy-flow-graph">
-                    <div className="energy-flow-label">⚡ Energy Flow</div>
-                    <div className="energy-flow-bars">
-                      {recommendations.map((rec, idx) => {
-                        const analysis = trackAnalysis[rec.videoId]
-                        const energy = analysis?.energy || 5
-                        return (
-                          <div key={idx} className="energy-bar-container" title={`${rec.title} - Energy: ${energy}`}>
-                            <div 
-                              className="energy-bar" 
-                              style={{ 
-                                height: `${energy * 10}%`,
-                                background: energy >= 8 ? '#EF4444' : energy >= 6 ? '#F59E0B' : energy >= 4 ? '#22D3EE' : '#8B5CF6'
-                              }}
-                            ></div>
-                            <span className="energy-bar-num">{idx + 1}</span>
-                          </div>
-                        )
-                      })}
+                    <div className="energy-flow-header">
+                      <div className="energy-flow-label">⚡ Energy Flow</div>
+                      <div className="energy-flow-desc">세트의 에너지 흐름을 시각화합니다. 높을수록 강렬한 곡!</div>
+                    </div>
+                    <div className="energy-flow-chart">
+                      <div className="energy-y-axis">
+                        <span>🔥</span>
+                        <span>💃</span>
+                        <span>😌</span>
+                      </div>
+                      <div className="energy-flow-bars">
+                        {recommendations.map((rec, idx) => {
+                          const analysis = trackAnalysis[rec.videoId]
+                          const energy = analysis?.energy || 5
+                          const energyLabel = energy >= 8 ? 'Peak!' : energy >= 6 ? 'High' : energy >= 4 ? 'Mid' : 'Chill'
+                          return (
+                            <div key={idx} className="energy-bar-container">
+                              <div className="energy-bar-tooltip">
+                                <strong>{rec.title}</strong>
+                                <span>Energy: {energy}/10 ({energyLabel})</span>
+                              </div>
+                              <div 
+                                className="energy-bar" 
+                                style={{ 
+                                  height: `${energy * 10}%`,
+                                  background: energy >= 8 ? '#EF4444' : energy >= 6 ? '#F59E0B' : energy >= 4 ? '#22D3EE' : '#8B5CF6'
+                                }}
+                              >
+                                <span className="energy-value">{energy}</span>
+                              </div>
+                              <span className="energy-bar-num">{idx + 1}</span>
+                            </div>
+                          )
+                        })}
+                      </div>
+                    </div>
+                    <div className="energy-legend">
+                      <span className="legend-item"><span className="legend-dot peak"></span>Peak (8-10)</span>
+                      <span className="legend-item"><span className="legend-dot high"></span>High (6-7)</span>
+                      <span className="legend-item"><span className="legend-dot mid"></span>Mid (4-5)</span>
+                      <span className="legend-item"><span className="legend-dot chill"></span>Chill (1-3)</span>
                     </div>
                   </div>
                 )}
