@@ -801,6 +801,42 @@
   animation: spin 1s linear infinite;
 }
 
+.rec-count-selector {
+  display: flex;
+  gap: 0.25rem;
+  background: var(--bg-secondary);
+  padding: 0.25rem;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+}
+
+.rec-count-mini {
+  padding: 0.35rem 0.6rem;
+  background: transparent;
+  border: none;
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.rec-count-mini:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+  color: var(--text-primary);
+}
+
+.rec-count-mini.active {
+  background: var(--accent-gradient);
+  color: white;
+}
+
+.rec-count-mini:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
 .rec-loading {
   display: flex;
   flex-direction: column;
