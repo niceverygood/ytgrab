@@ -832,6 +832,238 @@ function createZip(files, zipPath) {
   });
 }
 
+// Mixset progress tracking
+const mixsetProgress = new Map();
+
+// Create mixset with crossfade
+app.post('/api/create-mixset', async (req, res) => {
+  const { tracks, crossfadeDuration = 5, mixsetName = 'DJ_Mixset' } = req.body;
+  
+  if (!tracks || !Array.isArray(tracks) || tracks.length < 2) {
+    return res.status(400).json({ error: 'At least 2 tracks are required' });
+  }
+
+  const mixsetId = uuidv4();
+  const mixsetDir = path.join(DOWNLOADS_DIR, mixsetId);
+  fs.mkdirSync(mixsetDir, { recursive: true });
+
+  mixsetProgress.set(mixsetId, {
+    status: 'downloading',
+    total: tracks.length,
+    completed: 0,
+    current: '',
+    phase: 'Downloading tracks...'
+  });
+
+  res.json({ mixsetId, message: 'Mixset creation started' });
+
+  // Process in background
+  (async () => {
+    const downloadedFiles = [];
+    
+    // Step 1: Download all tracks as MP3
+    for (let i = 0; i < tracks.length; i++) {
+      const track = tracks[i];
+      const safeTitle = (track.title || `track_${i + 1}`).replace(/[<>:"/\\|?*]/g, '_').substring(0, 50);
+      const paddedNum = String(i + 1).padStart(2, '0');
+      
+      mixsetProgress.set(mixsetId, {
+        ...mixsetProgress.get(mixsetId),
+        current: `${track.artist} - ${track.title}`,
+        completed: i,
+        phase: `Downloading track ${i + 1}/${tracks.length}...`
+      });
+
+      try {
+        const outputPath = path.join(mixsetDir, `${paddedNum}_${safeTitle}.mp3`);
+        await downloadVideo(track.url, outputPath, 'mp3');
+        
+        // Find the actual downloaded file
+        const files = fs.readdirSync(mixsetDir);
+        const mp3File = files.find(f => f.startsWith(paddedNum) && f.endsWith('.mp3'));
+        if (mp3File) {
+          downloadedFiles.push({
+            path: path.join(mixsetDir, mp3File),
+            title: `${track.artist} - ${track.title}`,
+            order: i
+          });
+        }
+        
+        mixsetProgress.set(mixsetId, {
+          ...mixsetProgress.get(mixsetId),
+          completed: i + 1
+        });
+      } catch (error) {
+        console.error(`Failed to download ${track.title}:`, error);
+      }
+    }
+
+    if (downloadedFiles.length < 2) {
+      mixsetProgress.set(mixsetId, {
+        ...mixsetProgress.get(mixsetId),
+        status: 'error',
+        error: 'Not enough tracks downloaded successfully'
+      });
+      return;
+    }
+
+    // Step 2: Create mixset with FFmpeg crossfade
+    mixsetProgress.set(mixsetId, {
+      ...mixsetProgress.get(mixsetId),
+      phase: 'Creating mixset with crossfade...',
+      current: 'Mixing tracks together'
+    });
+
+    const safeMixsetName = mixsetName.replace(/[<>:"/\\|?*]/g, '_').substring(0, 100);
+    const outputMixset = path.join(DOWNLOADS_DIR, `${mixsetId}_${safeMixsetName}.mp3`);
+
+    try {
+      await createMixsetWithCrossfade(downloadedFiles, outputMixset, crossfadeDuration);
+      
+      // Clean up individual files
+      fs.rmSync(mixsetDir, { recursive: true, force: true });
+      
+      mixsetProgress.set(mixsetId, {
+        ...mixsetProgress.get(mixsetId),
+        status: 'completed',
+        phase: 'Mixset ready!',
+        filename: `${mixsetId}_${safeMixsetName}.mp3`,
+        trackCount: downloadedFiles.length,
+        crossfade: crossfadeDuration
+      });
+    } catch (error) {
+      console.error('Mixset creation error:', error);
+      mixsetProgress.set(mixsetId, {
+        ...mixsetProgress.get(mixsetId),
+        status: 'error',
+        error: 'Failed to create mixset: ' + error.message
+      });
+    }
+  })();
+});
+
+// Create mixset using FFmpeg with crossfade
+function createMixsetWithCrossfade(files, outputPath, crossfadeSec) {
+  return new Promise((resolve, reject) => {
+    if (files.length < 2) {
+      reject(new Error('Need at least 2 files'));
+      return;
+    }
+
+    // Sort files by order
+    files.sort((a, b) => a.order - b.order);
+    
+    // Build FFmpeg command for crossfade concatenation
+    // Using acrossfade filter for smooth transitions
+    const inputArgs = [];
+    files.forEach(f => {
+      inputArgs.push('-i', f.path);
+    });
+
+    // Build filter complex for crossfade
+    let filterComplex = '';
+    const cf = crossfadeSec;
+    
+    if (files.length === 2) {
+      // Simple case: 2 files
+      filterComplex = `[0:a][1:a]acrossfade=d=${cf}:c1=tri:c2=tri[out]`;
+    } else {
+      // Multiple files: chain crossfades
+      // [0:a][1:a]acrossfade=d=5[a01]; [a01][2:a]acrossfade=d=5[a02]; ...
+      let lastOutput = '[0:a]';
+      for (let i = 1; i < files.length; i++) {
+        const outputLabel = i === files.length - 1 ? '[out]' : `[a${String(i).padStart(2, '0')}]`;
+        filterComplex += `${lastOutput}[${i}:a]acrossfade=d=${cf}:c1=tri:c2=tri${outputLabel}`;
+        if (i < files.length - 1) {
+          filterComplex += '; ';
+          lastOutput = `[a${String(i).padStart(2, '0')}]`;
+        }
+      }
+    }
+
+    const args = [
+      ...inputArgs,
+      '-filter_complex', filterComplex,
+      '-map', '[out]',
+      '-codec:a', 'libmp3lame',
+      '-q:a', '2',
+      '-y',
+      outputPath
+    ];
+
+    console.log('FFmpeg mixset command:', 'ffmpeg', args.join(' '));
+
+    const ffmpeg = spawn('ffmpeg', args);
+    
+    ffmpeg.stdout.on('data', (data) => {
+      console.log('FFmpeg stdout:', data.toString());
+    });
+    
+    ffmpeg.stderr.on('data', (data) => {
+      // FFmpeg outputs progress to stderr
+      console.log('FFmpeg:', data.toString());
+    });
+    
+    ffmpeg.on('close', (code) => {
+      if (code === 0) {
+        resolve(outputPath);
+      } else {
+        reject(new Error(`FFmpeg exited with code ${code}`));
+      }
+    });
+
+    ffmpeg.on('error', (err) => {
+      reject(err);
+    });
+  });
+}
+
+// Get mixset progress
+app.get('/api/mixset-progress/:mixsetId', (req, res) => {
+  const { mixsetId } = req.params;
+  const progress = mixsetProgress.get(mixsetId);
+  
+  if (!progress) {
+    return res.status(404).json({ error: 'Mixset not found' });
+  }
+  
+  res.json(progress);
+});
+
+// Download mixset file
+app.get('/api/mixset-file/:mixsetId', (req, res) => {
+  const { mixsetId } = req.params;
+  const progress = mixsetProgress.get(mixsetId);
+  
+  if (!progress || progress.status !== 'completed') {
+    return res.status(404).json({ error: 'Mixset not ready' });
+  }
+  
+  const filePath = path.join(DOWNLOADS_DIR, progress.filename);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Mixset file not found' });
+  }
+  
+  res.setHeader('Content-Type', 'audio/mpeg');
+  res.setHeader('Content-Disposition', `attachment; filename="${encodeURIComponent(progress.filename)}"; filename*=UTF-8''${encodeURIComponent(progress.filename)}`);
+  
+  res.download(filePath, progress.filename, (err) => {
+    if (err) {
+      console.error('Mixset download error:', err);
+    }
+    // Clean up after download
+    setTimeout(() => {
+      try {
+        fs.unlinkSync(filePath);
+        mixsetProgress.delete(mixsetId);
+      } catch (e) {
+        console.error('Cleanup error:', e);
+      }
+    }, 300000); // Delete after 5 minutes
+  });
+});
+
 // Get bulk download progress
 app.get('/api/bulk-progress/:bulkId', (req, res) => {
   const { bulkId } = req.params;

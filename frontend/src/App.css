@@ -853,6 +853,12 @@
   max-width: 600px;
   max-height: 85vh;
   overflow-y: auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.dj-modal::-webkit-scrollbar {
+  display: none; /* Chrome/Safari/Opera */
 }
 
 .dj-icon {
@@ -1792,6 +1798,329 @@
 
   .quality-grid {
     grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* Create Mixset Button */
+.create-mixset-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  background: linear-gradient(135deg, rgba(0, 200, 150, 0.15), rgba(0, 150, 255, 0.15));
+  border: 1px solid rgba(0, 200, 150, 0.3);
+  border-radius: 12px;
+  color: #00c896;
+  font-size: 0.85rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.create-mixset-btn:hover {
+  background: linear-gradient(135deg, rgba(0, 200, 150, 0.25), rgba(0, 150, 255, 0.25));
+  border-color: #00c896;
+  transform: translateY(-2px);
+}
+
+.create-mixset-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* Mixset Modal */
+.mixset-modal {
+  max-width: 500px;
+}
+
+.mixset-icon {
+  background: linear-gradient(135deg, rgba(0, 200, 150, 0.15), rgba(0, 150, 255, 0.15));
+}
+
+.mixset-icon svg {
+  color: #00c896;
+}
+
+.mixset-settings {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-bottom: 1.5rem;
+}
+
+.mixset-info {
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.mixset-info p {
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-top: 0.3rem;
+}
+
+.mixset-option {
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+}
+
+.mixset-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  display: block;
+  margin-bottom: 0.5rem;
+}
+
+.crossfade-buttons {
+  display: flex;
+  gap: 0.5rem;
+}
+
+.crossfade-btn {
+  flex: 1;
+  padding: 0.6rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  color: var(--text-secondary);
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.crossfade-btn:hover {
+  border-color: var(--accent-primary);
+}
+
+.crossfade-btn.active {
+  background: linear-gradient(135deg, rgba(0, 200, 150, 0.2), rgba(0, 150, 255, 0.2));
+  border-color: #00c896;
+  color: #00c896;
+}
+
+.mixset-preview {
+  margin-bottom: 1.5rem;
+  padding: 1rem;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  max-height: 200px;
+  overflow-y: auto;
+}
+
+.mixset-tracks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  margin-top: 0.5rem;
+}
+
+.mixset-track-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0;
+  flex-wrap: wrap;
+}
+
+.mixset-track-num {
+  width: 22px;
+  height: 22px;
+  background: linear-gradient(135deg, #00c896, #0096ff);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: white;
+  flex-shrink: 0;
+}
+
+.mixset-track-name {
+  flex: 1;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.mixset-fade-indicator {
+  font-size: 0.7rem;
+  color: #00c896;
+  padding: 0.2rem 0.5rem;
+  background: rgba(0, 200, 150, 0.1);
+  border-radius: 10px;
+  margin-left: auto;
+}
+
+.mixset-track-more {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  padding: 0.5rem;
+  text-align: center;
+}
+
+.create-mixset-action {
+  background: linear-gradient(135deg, #00c896, #0096ff);
+  width: 100%;
+}
+
+.create-mixset-action:hover {
+  background: linear-gradient(135deg, #00d9a6, #00a8ff);
+  transform: translateY(-2px);
+}
+
+/* Mixset Progress */
+.mixset-progress {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.mixset-progress .rec-loading-spinner {
+  margin: 0 auto 1rem;
+}
+
+.mixset-phase {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+}
+
+.mixset-current {
+  display: block;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+.mixset-progress-bar {
+  width: 100%;
+  height: 8px;
+  background: var(--bg-secondary);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 1rem 0;
+}
+
+.mixset-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #00c896, #0096ff);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.mixset-count {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+/* Mixset Complete */
+.mixset-complete {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.mixset-success-icon {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #00c896, #0096ff);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: white;
+  margin: 0 auto 1rem;
+  animation: scaleIn 0.3s ease;
+}
+
+.mixset-complete h4 {
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+}
+
+.mixset-complete p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.download-mixset-action {
+  background: linear-gradient(135deg, #00c896, #0096ff);
+  width: 100%;
+}
+
+.download-mixset-action:hover {
+  background: linear-gradient(135deg, #00d9a6, #00a8ff);
+  transform: translateY(-2px);
+}
+
+/* Mixset Error */
+.mixset-error {
+  text-align: center;
+  padding: 2rem 1rem;
+}
+
+.mixset-error-icon {
+  width: 60px;
+  height: 60px;
+  background: linear-gradient(135deg, #ff4757, #ff6b7a);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  color: white;
+  margin: 0 auto 1rem;
+}
+
+.mixset-error h4 {
+  font-size: 1.3rem;
+  margin-bottom: 0.5rem;
+  color: #ff4757;
+}
+
+.mixset-error p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.retry-mixset {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  color: var(--text-primary);
+}
+
+.retry-mixset:hover {
+  background: var(--bg-card);
+  border-color: var(--accent-primary);
+}
+
+@keyframes scaleIn {
+  from {
+    transform: scale(0.5);
+    opacity: 0;
+  }
+  to {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@media (max-width: 640px) {
+  .crossfade-buttons {
+    flex-wrap: wrap;
+  }
+  
+  .crossfade-btn {
+    flex: 1 1 40%;
   }
 }
 

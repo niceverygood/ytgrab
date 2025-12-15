@@ -18,6 +18,10 @@ function App() {
   const [showDJModal, setShowDJModal] = useState(false) // DJ 순서 추천 모달
   const [djOrder, setDjOrder] = useState(null) // DJ 순서 추천 결과
   const [loadingDJ, setLoadingDJ] = useState(false) // DJ 추천 로딩
+  const [showMixsetModal, setShowMixsetModal] = useState(false) // 믹스셋 모달
+  const [mixsetProgress, setMixsetProgress] = useState(null) // 믹스셋 진행상황
+  const [mixsetId, setMixsetId] = useState(null) // 믹스셋 ID
+  const [crossfadeDuration, setCrossfadeDuration] = useState(5) // 크로스페이드 시간
   
   const [url, setUrl] = useState('')
   const [videoInfo, setVideoInfo] = useState(null)
@@ -313,6 +317,79 @@ function App() {
     }
     checkRecFavorites()
   }, [user, recommendations])
+
+  // Create mixset with crossfade
+  const createMixset = async () => {
+    if (recommendations.length < 2) return
+    
+    // Use DJ order if available, otherwise use current order
+    const tracksToMix = djOrder?.orderedTracks || recommendations.map((rec, idx) => ({
+      ...rec,
+      position: idx + 1
+    }))
+    
+    setMixsetProgress({ status: 'starting', phase: 'Starting...' })
+    
+    try {
+      const tracks = tracksToMix.map(track => ({
+        url: track.url,
+        title: track.title,
+        artist: track.artist
+      }))
+      
+      const mixsetName = videoInfo ? `${videoInfo.title}_Mixset` : 'DJ_Mixset'
+      
+      const response = await fetch(`${API_BASE}/create-mixset`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          tracks, 
+          crossfadeDuration,
+          mixsetName
+        })
+      })
+      
+      const data = await response.json()
+      
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create mixset')
+      }
+      
+      setMixsetId(data.mixsetId)
+      
+      // Poll for progress
+      const pollInterval = setInterval(async () => {
+        try {
+          const progressRes = await fetch(`${API_BASE}/mixset-progress/${data.mixsetId}`)
+          const progressData = await progressRes.json()
+          
+          setMixsetProgress(progressData)
+          
+          if (progressData.status === 'completed') {
+            clearInterval(pollInterval)
+          } else if (progressData.status === 'error') {
+            clearInterval(pollInterval)
+          }
+        } catch (err) {
+          console.error('Mixset progress error:', err)
+        }
+      }, 1000)
+    } catch (err) {
+      console.error('Mixset error:', err)
+      setMixsetProgress({ status: 'error', error: err.message })
+    }
+  }
+
+  const downloadMixset = () => {
+    if (mixsetId) {
+      window.location.href = `${API_BASE}/mixset-file/${mixsetId}`
+      setTimeout(() => {
+        setShowMixsetModal(false)
+        setMixsetProgress(null)
+        setMixsetId(null)
+      }, 2000)
+    }
+  }
 
   // Get DJ mix order recommendation
   const getDJOrder = async () => {
@@ -963,15 +1040,25 @@ function App() {
                       Download All
                     </button>
                     {recommendations.length >= 2 && (
-                      <button className="dj-order-btn" onClick={getDJOrder} disabled={loadingDJ}>
-                        <svg viewBox="0 0 24 24" fill="none">
-                          <circle cx="6" cy="6" r="3" stroke="currentColor" strokeWidth="2"/>
-                          <circle cx="18" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
-                          <path d="M6 21V9M18 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-                          <path d="M6 9C6 9 6 14 12 14C18 14 18 9 18 9" stroke="currentColor" strokeWidth="2"/>
-                        </svg>
-                        {loadingDJ ? 'AI 분석중...' : 'DJ Mix Order'}
-                      </button>
+                      <>
+                        <button className="dj-order-btn" onClick={getDJOrder} disabled={loadingDJ}>
+                          <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="6" cy="6" r="3" stroke="currentColor" strokeWidth="2"/>
+                            <circle cx="18" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
+                            <path d="M6 21V9M18 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                            <path d="M6 9C6 9 6 14 12 14C18 14 18 9 18 9" stroke="currentColor" strokeWidth="2"/>
+                          </svg>
+                          {loadingDJ ? 'AI 분석중...' : 'DJ Order'}
+                        </button>
+                        <button className="create-mixset-btn" onClick={() => setShowMixsetModal(true)}>
+                          <svg viewBox="0 0 24 24" fill="none">
+                            <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                            <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+                            <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                          </svg>
+                          Create Mixset
+                        </button>
+                      </>
                     )}
                   </>
                 )}
@@ -1436,6 +1523,133 @@ function App() {
                     </ul>
                   </div>
                 )}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      )}
+
+      {/* Mixset Modal */}
+      {showMixsetModal && (
+        <div className="modal-overlay" onClick={() => !mixsetProgress && setShowMixsetModal(false)}>
+          <div className="modal-content mixset-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => {
+              if (!mixsetProgress || mixsetProgress.status === 'completed' || mixsetProgress.status === 'error') {
+                setShowMixsetModal(false)
+                setMixsetProgress(null)
+                setMixsetId(null)
+              }
+            }}>
+              <svg viewBox="0 0 24 24" fill="none">
+                <path d="M18 6L6 18M6 6l12 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+              </svg>
+            </button>
+
+            <div className="modal-header">
+              <div className="modal-icon mixset-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                  <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M12 2v4M12 18v4M2 12h4M18 12h4" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+              </div>
+              <div>
+                <h3>🎛️ Create Mixset</h3>
+                <p>선택한 곡들을 크로스페이드로 하나의 믹스셋으로 제작</p>
+              </div>
+            </div>
+
+            {!mixsetProgress ? (
+              <>
+                <div className="mixset-settings">
+                  <div className="mixset-info">
+                    <span className="mixset-label">📀 Tracks to mix</span>
+                    <p>{djOrder?.orderedTracks?.length || recommendations.length} songs{djOrder && ' (DJ Order 적용됨)'}</p>
+                  </div>
+                  
+                  <div className="mixset-option">
+                    <span className="mixset-label">⏱️ Crossfade Duration</span>
+                    <div className="crossfade-buttons">
+                      {[3, 5, 8, 10].map(sec => (
+                        <button 
+                          key={sec}
+                          className={`crossfade-btn ${crossfadeDuration === sec ? 'active' : ''}`}
+                          onClick={() => setCrossfadeDuration(sec)}
+                        >
+                          {sec}s
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mixset-preview">
+                  <span className="mixset-label">🎵 Track Order Preview</span>
+                  <div className="mixset-tracks">
+                    {(djOrder?.orderedTracks || recommendations.slice(0, 5)).map((track, idx) => (
+                      <div key={idx} className="mixset-track-item">
+                        <span className="mixset-track-num">{idx + 1}</span>
+                        <span className="mixset-track-name">{track.artist} - {track.title}</span>
+                        {idx < (djOrder?.orderedTracks?.length || recommendations.length) - 1 && (
+                          <span className="mixset-fade-indicator">~{crossfadeDuration}s~</span>
+                        )}
+                      </div>
+                    ))}
+                    {!djOrder && recommendations.length > 5 && (
+                      <div className="mixset-track-more">+{recommendations.length - 5} more tracks...</div>
+                    )}
+                  </div>
+                </div>
+
+                <button className="modal-download-btn create-mixset-action" onClick={createMixset}>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+                    <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2"/>
+                  </svg>
+                  Create Mixset
+                </button>
+              </>
+            ) : mixsetProgress.status === 'downloading' || mixsetProgress.status === 'starting' ? (
+              <div className="mixset-progress">
+                <div className="rec-loading-spinner"></div>
+                <p className="mixset-phase">{mixsetProgress.phase}</p>
+                {mixsetProgress.current && (
+                  <span className="mixset-current">🎵 {mixsetProgress.current}</span>
+                )}
+                {mixsetProgress.total && (
+                  <div className="mixset-progress-bar">
+                    <div 
+                      className="mixset-progress-fill" 
+                      style={{ width: `${(mixsetProgress.completed / mixsetProgress.total) * 100}%` }}
+                    ></div>
+                  </div>
+                )}
+                {mixsetProgress.completed !== undefined && mixsetProgress.total && (
+                  <span className="mixset-count">{mixsetProgress.completed} / {mixsetProgress.total}</span>
+                )}
+              </div>
+            ) : mixsetProgress.status === 'completed' ? (
+              <div className="mixset-complete">
+                <div className="mixset-success-icon">✓</div>
+                <h4>Mixset Ready! 🎉</h4>
+                <p>{mixsetProgress.trackCount} tracks mixed with {mixsetProgress.crossfade}s crossfade</p>
+                <button className="modal-download-btn download-mixset-action" onClick={downloadMixset}>
+                  <svg viewBox="0 0 24 24" fill="none">
+                    <path d="M21 15V19C21 19.5304 20.7893 20.0391 20.4142 20.4142C20.0391 20.7893 19.5304 21 19 21H5C4.46957 21 3.96086 20.7893 3.58579 20.4142C3.21071 20.0391 3 19.5304 3 19V15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M7 10L12 15L17 10" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                    <path d="M12 15V3" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  </svg>
+                  Download Mixset
+                </button>
+              </div>
+            ) : mixsetProgress.status === 'error' ? (
+              <div className="mixset-error">
+                <div className="mixset-error-icon">✕</div>
+                <h4>Mixset Failed</h4>
+                <p>{mixsetProgress.error}</p>
+                <button className="modal-download-btn retry-mixset" onClick={() => setMixsetProgress(null)}>
+                  Try Again
+                </button>
               </div>
             ) : null}
           </div>
