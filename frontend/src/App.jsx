@@ -1,9 +1,16 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
+import AuthModal from './components/AuthModal'
+import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite } from './lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 function App() {
+  // Auth state
+  const [user, setUser] = useState(null)
+  const [showAuthModal, setShowAuthModal] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
+  
   const [url, setUrl] = useState('')
   const [videoInfo, setVideoInfo] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -159,6 +166,38 @@ function App() {
       }
     }
   }, [downloadId])
+
+  // Auth state listener
+  useEffect(() => {
+    // Get initial session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setUser(session?.user ?? null)
+    })
+
+    // Listen for auth changes
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setUser(session?.user ?? null)
+      setShowAuthModal(false)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [])
+
+  // Close user menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (showUserMenu && !e.target.closest('.user-menu')) {
+        setShowUserMenu(false)
+      }
+    }
+    document.addEventListener('click', handleClickOutside)
+    return () => document.removeEventListener('click', handleClickOutside)
+  }, [showUserMenu])
+
+  const handleSignOut = async () => {
+    await signOut()
+    setShowUserMenu(false)
+  }
 
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !loading) {
@@ -409,15 +448,72 @@ function App() {
       <div className="container">
         {/* Header */}
         <header className="header">
-          <div className="logo">
-            <div className="logo-icon">
-              <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              </svg>
+          <div className="header-top">
+            <div className="logo">
+              <div className="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </div>
+              <h1>YT<span>Grab</span></h1>
             </div>
-            <h1>YT<span>Grab</span></h1>
+            
+            {/* Auth Section */}
+            {user ? (
+              <div className="user-menu">
+                <button className="user-avatar-btn" onClick={() => setShowUserMenu(!showUserMenu)}>
+                  {user.user_metadata?.avatar_url ? (
+                    <img src={user.user_metadata.avatar_url} alt="Avatar" className="user-avatar" />
+                  ) : (
+                    <div className="user-avatar-placeholder">
+                      {(user.email || user.user_metadata?.name || 'U')[0].toUpperCase()}
+                    </div>
+                  )}
+                  <span className="user-name">{user.user_metadata?.name || user.email?.split('@')[0]}</span>
+                  <svg viewBox="0 0 24 24" fill="none" style={{width: '16px', height: '16px'}}>
+                    <path d="M6 9l6 6 6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+                
+                {showUserMenu && (
+                  <div className="user-dropdown">
+                    <button className="user-dropdown-item" onClick={() => { /* TODO: Show history */ }}>
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      다운로드 기록
+                    </button>
+                    <button className="user-dropdown-item" onClick={() => { /* TODO: Show favorites */ }}>
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      즐겨찾기
+                    </button>
+                    <button className="user-dropdown-item" onClick={() => { /* TODO: Show recommendations */ }}>
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      추천 기록
+                    </button>
+                    <button className="user-dropdown-item logout" onClick={handleSignOut}>
+                      <svg viewBox="0 0 24 24" fill="none">
+                        <path d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                      </svg>
+                      로그아웃
+                    </button>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <button className="login-btn" onClick={() => setShowAuthModal(true)}>
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                로그인
+              </button>
+            )}
           </div>
           <p className="tagline">Download YouTube videos in MP4 format</p>
         </header>
@@ -1033,6 +1129,9 @@ function App() {
           </div>
         </div>
       )}
+
+      {/* Auth Modal */}
+      <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
     </div>
   )
 }
