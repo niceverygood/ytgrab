@@ -379,8 +379,8 @@ app.post('/api/recommend', async (req, res) => {
     return res.status(400).json({ error: 'Title is required' });
   }
 
-  // Limit count to reasonable range
-  const songCount = Math.min(Math.max(parseInt(count) || 5, 1), 20);
+  // Limit count to reasonable range (max 50)
+  const songCount = Math.min(Math.max(parseInt(count) || 5, 1), 50);
 
   if (!hasAI) {
     return res.status(503).json({ 

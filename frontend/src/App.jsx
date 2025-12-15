@@ -634,7 +634,7 @@ function App() {
             <div className="rec-trigger-options">
               <label>Number of songs:</label>
               <div className="rec-count-buttons">
-                {[5, 10, 15, 20].map(num => (
+                {[5, 10, 20, 30, 50].map(num => (
                   <button
                     key={num}
                     className={`rec-count-btn ${recCount === num ? 'active' : ''}`}
