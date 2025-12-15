@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react'
 import './App.css'
 import AuthModal from './components/AuthModal'
-import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite } from './lib/supabase'
+import HistoryModal from './components/HistoryModal'
+import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite, saveRecommendation } from './lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
@@ -10,6 +11,9 @@ function App() {
   const [user, setUser] = useState(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
+  const [showHistoryModal, setShowHistoryModal] = useState(false)
+  const [historyTab, setHistoryTab] = useState('downloads')
+  const [isFav, setIsFav] = useState(false)
   
   const [url, setUrl] = useState('')
   const [videoInfo, setVideoInfo] = useState(null)
@@ -117,6 +121,21 @@ function App() {
       }
 
       setDownloadId(data.downloadId)
+      
+      // Save download to history (logged in users only)
+      if (user && videoInfo) {
+        const videoId = url.match(/(?:v=|\/)([\w-]{11})/)?.[1]
+        if (videoId) {
+          saveDownload(user.id, {
+            videoId,
+            title: videoInfo.title,
+            thumbnail: videoInfo.thumbnail,
+            uploader: videoInfo.uploader,
+            duration: videoInfo.duration,
+            format: outputFormat
+          })
+        }
+      }
     } catch (err) {
       setError(err.message)
       setDownloading(false)
@@ -199,6 +218,69 @@ function App() {
     setShowUserMenu(false)
   }
 
+  const openHistory = (tab) => {
+    setHistoryTab(tab)
+    setShowHistoryModal(true)
+    setShowUserMenu(false)
+  }
+
+  // Check if current video is favorited
+  useEffect(() => {
+    const checkFavorite = async () => {
+      if (user && videoInfo) {
+        const videoId = url.match(/(?:v=|\/)([\w-]{11})/)?.[1]
+        if (videoId) {
+          const { isFavorite: fav } = await isFavorite(user.id, videoId)
+          setIsFav(fav)
+        }
+      } else {
+        setIsFav(false)
+      }
+    }
+    checkFavorite()
+  }, [user, videoInfo, url])
+
+  const toggleFavorite = async () => {
+    if (!user) {
+      setShowAuthModal(true)
+      return
+    }
+    
+    const videoId = url.match(/(?:v=|\/)([\w-]{11})/)?.[1]
+    if (!videoId || !videoInfo) return
+
+    if (isFav) {
+      await removeFavorite(user.id, videoId)
+      setIsFav(false)
+    } else {
+      await addFavorite(user.id, {
+        videoId,
+        title: videoInfo.title,
+        thumbnail: videoInfo.thumbnail,
+        uploader: videoInfo.uploader,
+        duration: videoInfo.duration,
+        url: url
+      })
+      setIsFav(true)
+    }
+  }
+
+  // Save download to history
+  const saveDownloadHistory = async (format) => {
+    if (!user || !videoInfo) return
+    const videoId = url.match(/(?:v=|\/)([\w-]{11})/)?.[1]
+    if (!videoId) return
+    
+    await saveDownload(user.id, {
+      videoId,
+      title: videoInfo.title,
+      thumbnail: videoInfo.thumbnail,
+      uploader: videoInfo.uploader,
+      duration: videoInfo.duration,
+      format: outputFormat
+    })
+  }
+
   const handleKeyPress = (e) => {
     if (e.key === 'Enter' && !loading) {
       fetchVideoInfo()
@@ -270,6 +352,14 @@ function App() {
       // 새 추천을 이전 추천 기록에 추가 (다음 리프레시를 위해)
       const newTitles = newRecs.map(r => `${r.artist} - ${r.title}`)
       setPreviousRecs(prev => [...prev, ...newTitles])
+      
+      // Save recommendation history (logged in users only)
+      if (user && newRecs.length > 0) {
+        saveRecommendation(user.id, {
+          title: videoInfo.title,
+          uploader: videoInfo.uploader
+        }, newRecs)
+      }
     } catch (err) {
       console.error('Recommendation error:', err)
       setRecError('Failed to connect to recommendation service')
@@ -479,19 +569,19 @@ function App() {
                 
                 {showUserMenu && (
                   <div className="user-dropdown">
-                    <button className="user-dropdown-item" onClick={() => { /* TODO: Show history */ }}>
+                    <button className="user-dropdown-item" onClick={() => openHistory('downloads')}>
                       <svg viewBox="0 0 24 24" fill="none">
                         <path d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                       다운로드 기록
                     </button>
-                    <button className="user-dropdown-item" onClick={() => { /* TODO: Show favorites */ }}>
+                    <button className="user-dropdown-item" onClick={() => openHistory('favorites')}>
                       <svg viewBox="0 0 24 24" fill="none">
                         <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
                       즐겨찾기
                     </button>
-                    <button className="user-dropdown-item" onClick={() => { /* TODO: Show recommendations */ }}>
+                    <button className="user-dropdown-item" onClick={() => openHistory('recommendations')}>
                       <svg viewBox="0 0 24 24" fill="none">
                         <path d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
                       </svg>
@@ -592,7 +682,18 @@ function App() {
             </div>
             
             <div className="video-details">
-              <h2 className="video-title">{videoInfo.title}</h2>
+              <div className="video-title-row">
+                <h2 className="video-title">{videoInfo.title}</h2>
+                <button 
+                  className={`favorite-btn ${isFav ? 'active' : ''}`}
+                  onClick={toggleFavorite}
+                  title={isFav ? '즐겨찾기 해제' : '즐겨찾기 추가'}
+                >
+                  <svg viewBox="0 0 24 24" fill={isFav ? 'currentColor' : 'none'}>
+                    <path d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  </svg>
+                </button>
+              </div>
               <div className="video-meta">
                 <span className="uploader">{videoInfo.uploader}</span>
                 <span className="separator">•</span>
@@ -1132,6 +1233,14 @@ function App() {
 
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
+      
+      {/* History Modal */}
+      <HistoryModal 
+        isOpen={showHistoryModal} 
+        onClose={() => setShowHistoryModal(false)} 
+        userId={user?.id}
+        initialTab={historyTab}
+      />
     </div>
   )
 }
