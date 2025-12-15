@@ -7,15 +7,22 @@ import fs from 'fs';
 import { fileURLToPath } from 'url';
 import { v4 as uuidv4 } from 'uuid';
 import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenerativeAI } from '@google/generative-ai';
+import OpenAI from 'openai';
 import archiver from 'archiver';
 
-const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY || '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';
+// API Keys (from environment variables only - set in Railway dashboard)
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY;
+const CLAUDE_API_KEY = process.env.ANTHROPIC_API_KEY;
+const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
-const anthropic = new Anthropic({
-  apiKey: CLAUDE_API_KEY
-});
+// Initialize AI clients (only if API keys are available)
+const genAI = GEMINI_API_KEY ? new GoogleGenerativeAI(GEMINI_API_KEY) : null;
+const anthropic = CLAUDE_API_KEY ? new Anthropic({ apiKey: CLAUDE_API_KEY }) : null;
+const openai = OPENAI_API_KEY ? new OpenAI({ apiKey: OPENAI_API_KEY }) : null;
 
-const hasAI = !!CLAUDE_API_KEY;
+const hasAI = !!(GEMINI_API_KEY || CLAUDE_API_KEY || OPENAI_API_KEY);
+console.log('AI Services:', { gemini: !!GEMINI_API_KEY, claude: !!CLAUDE_API_KEY, openai: !!OPENAI_API_KEY });
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -308,37 +315,13 @@ app.get('/api/file/:downloadId', (req, res) => {
   });
 });
 
-// Get similar music recommendations using AI
-app.post('/api/recommend', async (req, res) => {
-  const { title, uploader, count = 5, excludeTitles = [] } = req.body;
-  
-  if (!title) {
-    return res.status(400).json({ error: 'Title is required' });
-  }
-
-  // Limit count to reasonable range
-  const songCount = Math.min(Math.max(parseInt(count) || 5, 1), 20);
-
-  if (!hasAI) {
-    return res.status(503).json({ 
-      error: 'AI recommendations not available', 
-      message: 'Please set ANTHROPIC_API_KEY environment variable' 
-    });
-  }
-
-  // Build exclude list for prompt
+// Build AI prompt for music recommendations
+function buildRecommendationPrompt(songCount, title, uploader, excludeTitles = []) {
   const excludeSection = excludeTitles.length > 0 
     ? `\n\nIMPORTANT: Do NOT recommend any of these songs (already recommended before):\n${excludeTitles.map(t => `- ${t}`).join('\n')}`
     : '';
 
-  try {
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-20250514',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: `You are a music recommendation expert. Given a song or video title and artist, suggest ${songCount} similar songs/music videos that users might enjoy.
+  return `You are a music recommendation expert. Given a song or video title and artist, suggest ${songCount} similar songs/music videos that users might enjoy.
 
 CRITICAL RULES:
 1. Only recommend SINGLE SONGS (one track per recommendation)
@@ -354,12 +337,97 @@ Return ONLY a JSON array with exactly ${songCount} items in this format (no othe
 
 Make sure the recommendations are real, popular songs that exist on YouTube as single tracks. Focus on similar genre, mood, or artist style. Include a diverse mix of well-known and somewhat lesser-known tracks.${excludeSection}
 
-Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Artist'}`
-        }
-      ]
-    });
+Recommend ${songCount} similar songs to: "${title}" by ${uploader || 'Unknown Artist'}`;
+}
 
-    const content = message.content[0].text;
+// Try Gemini API
+async function tryGemini(prompt) {
+  if (!genAI) throw new Error('Gemini API key not configured');
+  const model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return response.text();
+}
+
+// Try Claude API
+async function tryClaude(prompt) {
+  if (!anthropic) throw new Error('Claude API key not configured');
+  const message = await anthropic.messages.create({
+    model: 'claude-sonnet-4-20250514',
+    max_tokens: 2000,
+    messages: [{ role: 'user', content: prompt }]
+  });
+  return message.content[0].text;
+}
+
+// Try OpenAI API
+async function tryOpenAI(prompt) {
+  if (!openai) throw new Error('OpenAI API key not configured');
+  const completion = await openai.chat.completions.create({
+    model: 'gpt-4o-mini',
+    messages: [{ role: 'user', content: prompt }],
+    max_tokens: 2000
+  });
+  return completion.choices[0].message.content;
+}
+
+// Get similar music recommendations using AI (Gemini → Claude → GPT fallback)
+app.post('/api/recommend', async (req, res) => {
+  const { title, uploader, count = 5, excludeTitles = [] } = req.body;
+  
+  if (!title) {
+    return res.status(400).json({ error: 'Title is required' });
+  }
+
+  // Limit count to reasonable range
+  const songCount = Math.min(Math.max(parseInt(count) || 5, 1), 20);
+
+  if (!hasAI) {
+    return res.status(503).json({ 
+      error: 'AI recommendations not available', 
+      message: 'Please set API keys for AI services' 
+    });
+  }
+
+  const prompt = buildRecommendationPrompt(songCount, title, uploader, excludeTitles);
+  let content = null;
+  let usedAI = null;
+
+  // Try Gemini first
+  try {
+    console.log('Trying Gemini...');
+    content = await tryGemini(prompt);
+    usedAI = 'Gemini';
+    console.log('Gemini succeeded');
+  } catch (geminiError) {
+    console.log('Gemini failed:', geminiError.message);
+    
+    // Try Claude as fallback
+    try {
+      console.log('Trying Claude...');
+      content = await tryClaude(prompt);
+      usedAI = 'Claude';
+      console.log('Claude succeeded');
+    } catch (claudeError) {
+      console.log('Claude failed:', claudeError.message);
+      
+      // Try OpenAI as last resort
+      try {
+        console.log('Trying OpenAI...');
+        content = await tryOpenAI(prompt);
+        usedAI = 'OpenAI';
+        console.log('OpenAI succeeded');
+      } catch (openaiError) {
+        console.log('OpenAI failed:', openaiError.message);
+        return res.status(500).json({ 
+          error: 'All AI services failed',
+          details: `Gemini: ${geminiError.message}, Claude: ${claudeError.message}, OpenAI: ${openaiError.message}`
+        });
+      }
+    }
+  }
+
+  try {
     
     // Parse JSON from response
     const jsonMatch = content.match(/\[[\s\S]*\]/);
