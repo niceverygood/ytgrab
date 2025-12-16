@@ -2348,7 +2348,7 @@ Respond in this JSON format ONLY:
     let result;
     
     if (genAI) {
-      const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const genResult = await model.generateContent(prompt);
       const text = genResult.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -2661,7 +2661,7 @@ Respond in this exact JSON format:
     
     if (!aiAnalysis && genAI) {
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(analysisPrompt);
         const text = result.response.text();
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -2896,7 +2896,7 @@ Respond in this exact JSON format:
     
     if (!aiResult && genAI) {
       try {
-        const model = genAI.getGenerativeModel({ model: 'gemini-pro' });
+        const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' });
         const result = await model.generateContent(prompt);
         const text = result.response.text();
         const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -3272,7 +3272,7 @@ Provide a JSON response with:
     let prediction;
     
     if (genAI) {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -3355,7 +3355,7 @@ Generate 10 realistic trending tracks.`;
     let trendData;
     
     if (genAI) {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -3418,7 +3418,7 @@ Generate 8 realistic rising track predictions across different genres.`;
     let risingData;
     
     if (genAI) {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -3500,7 +3500,7 @@ Generate 15 realistic tracks.`;
     let djData;
     
     if (genAI) {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
@@ -3600,7 +3600,7 @@ Generate 12 trending tracks.`;
     let venueData;
     
     if (genAI) {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const model = genAI.getGenerativeModel({ model: "gemini-2.0-flash" });
       const result = await model.generateContent(prompt);
       const text = result.response.text();
       const jsonMatch = text.match(/\{[\s\S]*\}/);
