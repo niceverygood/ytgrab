@@ -5,6 +5,7 @@ import AuthModal from './components/AuthModal'
 import HistoryModal from './components/HistoryModal'
 import WaveformVisualizer from './components/WaveformVisualizer'
 import ListenButton from './components/ListenButton'
+import CommunitySection from './components/CommunitySection'
 import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite, saveRecommendation, createSetlist, getSetlists } from './lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -34,6 +35,7 @@ function App() {
   const mixPreviewRef = useRef(null) // Audio element ref for mix preview
   
   // Main state
+  const [activeMainTab, setActiveMainTab] = useState('music') // 'music' | 'discover'
   const [url, setUrl] = useState('')
   const [videoInfo, setVideoInfo] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -1221,9 +1223,9 @@ function App() {
             </Link>
 
             <nav className="header-nav">
-              <Link 
-                to="/" 
-                className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
+              <button 
+                className={`nav-item ${activeMainTab === 'music' ? 'active' : ''}`}
+                onClick={() => setActiveMainTab('music')}
               >
                 <svg viewBox="0 0 24 24" fill="none">
                   <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
@@ -1231,17 +1233,18 @@ function App() {
                   <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
                 </svg>
                 <span>Music</span>
-              </Link>
-              <Link 
-                to="/community" 
-                className={`nav-item ${location.pathname === '/community' ? 'active' : ''}`}
+              </button>
+              <button 
+                className={`nav-item ${activeMainTab === 'discover' ? 'active' : ''}`}
+                onClick={() => setActiveMainTab('discover')}
               >
                 <svg viewBox="0 0 24 24" fill="none">
-                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
-                  <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                  <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="9" cy="7" r="4" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M23 21v-2a4 4 0 00-3-3.87M16 3.13a4 4 0 010 7.75" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 <span>Discover</span>
-              </Link>
+              </button>
             </nav>
           </div>
 
@@ -1266,6 +1269,9 @@ function App() {
           </div>
         </header>
 
+        {/* Music Tab Content */}
+        {activeMainTab === 'music' && (
+          <>
         {/* Hero Section */}
         {!videoInfo && !loading && (
           <section className="hero">
@@ -2128,7 +2134,6 @@ function App() {
             ) : null}
           </section>
         )}
-      </div>
 
       {/* Error Toast */}
       {error && (
@@ -2153,6 +2158,14 @@ function App() {
           />
         </div>
       )}
+      </>
+      )}
+
+      {/* Discover Tab Content */}
+      {activeMainTab === 'discover' && (
+        <CommunitySection user={user} onAuthRequired={() => setShowAuthModal(true)} />
+      )}
+      </div>
 
       {/* Download Modal */}
       {showDownloadModal && (
