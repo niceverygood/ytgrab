@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { getDownloadHistory, getFavorites, getRecommendationHistory, removeFavorite } from '../lib/supabase'
 import './HistoryModal.css'
 
-export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'downloads' }) {
+export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'downloads', onSelectTrack }) {
   const [activeTab, setActiveTab] = useState(initialTab)
   const [downloads, setDownloads] = useState([])
   const [favorites, setFavorites] = useState([])
@@ -41,9 +41,25 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
     }
   }
 
-  const handleRemoveFavorite = async (videoId) => {
+  const handleRemoveFavorite = async (e, videoId) => {
+    e.stopPropagation()
     await removeFavorite(userId, videoId)
     setFavorites(favorites.filter(f => f.video_id !== videoId))
+  }
+
+  // 트랙 선택 시 메인 화면으로 설정
+  const handleSelectTrack = (item) => {
+    if (onSelectTrack) {
+      onSelectTrack({
+        videoId: item.video_id,
+        title: item.title,
+        thumbnail: item.thumbnail,
+        uploader: item.uploader,
+        duration: item.duration,
+        url: item.url || `https://www.youtube.com/watch?v=${item.video_id}`
+      })
+      onClose()
+    }
   }
 
   const formatDate = (dateString) => {
@@ -129,7 +145,12 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                     </div>
                   ) : (
                     downloads.map((item) => (
-                      <div key={item.id} className="history-item">
+                      <div 
+                        key={item.id} 
+                        className="history-item clickable"
+                        onClick={() => handleSelectTrack(item)}
+                        title="클릭하여 메인 노래로 설정"
+                      >
                         <div className="history-item-thumb">
                           {item.thumbnail ? (
                             <img src={item.thumbnail} alt={item.title} />
@@ -137,6 +158,9 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                             <div className="thumb-placeholder">🎵</div>
                           )}
                           <span className="history-item-duration">{formatDuration(item.duration)}</span>
+                          <div className="select-overlay">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          </div>
                         </div>
                         <div className="history-item-info">
                           <h4>{item.title}</h4>
@@ -145,6 +169,9 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                             <span className="format-badge">{item.format?.toUpperCase()}</span>
                             {formatDate(item.created_at)}
                           </span>
+                        </div>
+                        <div className="history-item-select-hint">
+                          <svg viewBox="0 0 24 24" fill="none"><path d="M9 18l6-6-6-6" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
                         </div>
                       </div>
                     ))
@@ -164,7 +191,12 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                     </div>
                   ) : (
                     favorites.map((item) => (
-                      <div key={item.id} className="history-item">
+                      <div 
+                        key={item.id} 
+                        className="history-item clickable"
+                        onClick={() => handleSelectTrack(item)}
+                        title="클릭하여 메인 노래로 설정"
+                      >
                         <div className="history-item-thumb">
                           {item.thumbnail ? (
                             <img src={item.thumbnail} alt={item.title} />
@@ -172,6 +204,9 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                             <div className="thumb-placeholder">🎵</div>
                           )}
                           <span className="history-item-duration">{formatDuration(item.duration)}</span>
+                          <div className="select-overlay">
+                            <svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>
+                          </div>
                         </div>
                         <div className="history-item-info">
                           <h4>{item.title}</h4>
@@ -185,6 +220,7 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                             rel="noopener noreferrer"
                             className="history-action-btn play"
                             title="YouTube에서 보기"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <svg viewBox="0 0 24 24" fill="none">
                               <path d="M10 16.5l6-4.5-6-4.5v9z" fill="currentColor"/>
@@ -193,7 +229,7 @@ export default function HistoryModal({ isOpen, onClose, userId, initialTab = 'do
                           </a>
                           <button 
                             className="history-action-btn remove"
-                            onClick={() => handleRemoveFavorite(item.video_id)}
+                            onClick={(e) => handleRemoveFavorite(e, item.video_id)}
                             title="즐겨찾기에서 제거"
                           >
                             <svg viewBox="0 0 24 24" fill="none">

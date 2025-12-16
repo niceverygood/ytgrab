@@ -19,15 +19,15 @@
 }
 
 .auth-modal {
-  background: linear-gradient(145deg, #1a1a2e 0%, #16213e 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 20px;
+  background: linear-gradient(145deg, #1a1625 0%, #0f0a1a 100%);
+  border: 1px solid rgba(139, 92, 246, 0.2);
+  border-radius: 24px;
   padding: 2.5rem;
   max-width: 420px;
   width: 90%;
   position: relative;
   animation: slideUp 0.3s ease;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.6), 0 0 60px rgba(139, 92, 246, 0.1);
 }
 
 @keyframes slideUp {
@@ -73,19 +73,20 @@
 }
 
 .auth-logo {
-  width: 60px;
-  height: 60px;
-  background: linear-gradient(135deg, #ff3366, #ff6b6b);
-  border-radius: 16px;
+  width: 72px;
+  height: 72px;
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
+  border-radius: 20px;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.5rem;
+  box-shadow: 0 8px 32px rgba(139, 92, 246, 0.4);
 }
 
 .auth-logo svg {
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   color: white;
 }
 
@@ -185,7 +186,7 @@
 }
 
 .auth-footer a {
-  color: #ff6b6b;
+  color: #A78BFA;
   text-decoration: none;
 }
 
@@ -225,7 +226,7 @@
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #ff3366, #ff6b6b);
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -296,11 +297,11 @@
 
 .user-dropdown-item.logout {
   border-top: 1px solid rgba(255, 255, 255, 0.1);
-  color: #ff6b6b;
+  color: #EF4444;
 }
 
 .user-dropdown-item.logout:hover {
-  background: rgba(255, 107, 107, 0.1);
+  background: rgba(239, 68, 68, 0.1);
 }
 
 /* Login button in header */
@@ -309,7 +310,7 @@
   align-items: center;
   gap: 0.5rem;
   padding: 0.625rem 1.25rem;
-  background: linear-gradient(135deg, #ff3366, #ff6b6b);
+  background: linear-gradient(135deg, #8B5CF6, #A78BFA);
   border: none;
   border-radius: 25px;
   color: white;
@@ -321,7 +322,7 @@
 
 .login-btn:hover {
   transform: translateY(-2px);
-  box-shadow: 0 4px 15px rgba(255, 51, 102, 0.4);
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
 }
 
 .login-btn svg {

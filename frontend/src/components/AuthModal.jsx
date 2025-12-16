@@ -30,13 +30,12 @@ export default function AuthModal({ isOpen, onClose }) {
         <div className="auth-modal-header">
           <div className="auth-logo">
             <svg viewBox="0 0 24 24" fill="none">
-              <path d="M12 2L2 7L12 12L22 7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 17L12 22L22 17" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-              <path d="M2 12L12 17L22 12" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/>
+              <path d="M9 9l6 3-6 3V9z" fill="currentColor"/>
             </svg>
           </div>
-          <h2>YTGrab에 로그인</h2>
-          <p>다운로드 기록과 즐겨찾기를 저장하세요</p>
+          <h2>BeatFlo에 로그인</h2>
+          <p>AI 음악 추천과 믹스셋을 저장하세요</p>
         </div>
 
         {error && (
