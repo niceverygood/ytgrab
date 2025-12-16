@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { 
   supabase, 
@@ -37,6 +37,10 @@ function MyPage() {
     bio: '',
     favorite_genres: ''
   })
+  
+  // Avatar upload
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
+  const avatarInputRef = useRef(null)
   
   // Mixset upload modal
   const [showMixsetModal, setShowMixsetModal] = useState(false)
@@ -117,6 +121,92 @@ function MyPage() {
     if (!error && data) {
       setProfile(data)
       setEditingProfile(false)
+    }
+  }
+
+  const handleAvatarUpload = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    
+    // Validate file type
+    if (!file.type.startsWith('image/')) {
+      alert('이미지 파일만 업로드 가능합니다.')
+      return
+    }
+    
+    // Validate file size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      alert('파일 크기는 2MB 이하여야 합니다.')
+      return
+    }
+    
+    setUploadingAvatar(true)
+    
+    try {
+      // Create unique filename
+      const fileExt = file.name.split('.').pop()
+      const fileName = `${user.id}/${Date.now()}.${fileExt}`
+      
+      // Upload to Supabase Storage
+      const { error: uploadError } = await supabase.storage
+        .from('avatars')
+        .upload(fileName, file, {
+          cacheControl: '3600',
+          upsert: true
+        })
+      
+      if (uploadError) {
+        // If bucket doesn't exist, try creating it or use a workaround
+        console.error('Upload error:', uploadError)
+        
+        // Fallback: use data URL
+        const reader = new FileReader()
+        reader.onloadend = async () => {
+          // For now, we'll update user metadata with the avatar
+          // This is a fallback if storage isn't configured
+          const { error: updateError } = await supabase.auth.updateUser({
+            data: { avatar_url: reader.result }
+          })
+          
+          if (!updateError) {
+            // Refresh user data
+            const { data: { session } } = await supabase.auth.getSession()
+            setUser(session?.user)
+          }
+        }
+        reader.readAsDataURL(file)
+        setUploadingAvatar(false)
+        return
+      }
+      
+      // Get public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('avatars')
+        .getPublicUrl(fileName)
+      
+      // Update profile with new avatar URL
+      const { data: updatedProfile, error: profileError } = await updateProfile(user.id, {
+        avatar_url: publicUrl
+      })
+      
+      if (!profileError && updatedProfile) {
+        setProfile(updatedProfile)
+      }
+      
+      // Also update auth user metadata
+      await supabase.auth.updateUser({
+        data: { avatar_url: publicUrl }
+      })
+      
+      // Refresh user
+      const { data: { session } } = await supabase.auth.getSession()
+      setUser(session?.user)
+      
+    } catch (err) {
+      console.error('Avatar upload error:', err)
+      alert('프로필 사진 업로드에 실패했습니다.')
+    } finally {
+      setUploadingAvatar(false)
     }
   }
 
@@ -216,8 +306,31 @@ function MyPage() {
       <section className="profile-section">
         <div className="profile-banner"></div>
         <div className="profile-content">
-          <div className="profile-avatar">
-            <img src={user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.display_name || user?.email)}&background=8B5CF6&color=fff`} alt="Avatar" />
+          <div 
+            className={`profile-avatar ${uploadingAvatar ? 'uploading' : ''}`}
+            onClick={() => !uploadingAvatar && avatarInputRef.current?.click()}
+          >
+            <img 
+              src={profile?.avatar_url || user?.user_metadata?.avatar_url || `https://ui-avatars.com/api/?name=${encodeURIComponent(profile?.display_name || user?.email)}&background=8B5CF6&color=fff`} 
+              alt="Avatar" 
+            />
+            <div className="avatar-overlay">
+              {uploadingAvatar ? (
+                <div className="avatar-spinner"></div>
+              ) : (
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M23 19a2 2 0 01-2 2H3a2 2 0 01-2-2V8a2 2 0 012-2h4l2-3h6l2 3h4a2 2 0 012 2z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="12" cy="13" r="4" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+              )}
+            </div>
+            <input 
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleAvatarUpload}
+              style={{ display: 'none' }}
+            />
           </div>
           
           <div className="profile-info">
