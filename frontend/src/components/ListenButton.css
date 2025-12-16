@@ -112,88 +112,199 @@
 /* Listening State */
 .listening-state {
   text-align: center;
-  padding: 2rem 0;
-}
-
-.sound-wave {
+  padding: 1.5rem 0;
   display: flex;
-  justify-content: center;
+  flex-direction: column;
   align-items: center;
-  gap: 6px;
-  height: 60px;
-  margin-bottom: 1rem;
 }
 
-.wave-bar {
-  width: 6px;
-  background: linear-gradient(180deg, #EC4899, #8B5CF6);
-  border-radius: 3px;
-  animation: wave 0.5s ease-in-out infinite;
+/* 원형 비주얼라이저 컨테이너 */
+.circular-visualizer-container {
+  position: relative;
+  width: 350px;
+  height: 350px;
+  margin-bottom: 1.5rem;
 }
 
-.wave-bar:nth-child(1) { animation-delay: 0s; height: calc(20px + var(--amplitude, 0) * 40px); }
-.wave-bar:nth-child(2) { animation-delay: 0.1s; height: calc(30px + var(--amplitude, 0) * 30px); }
-.wave-bar:nth-child(3) { animation-delay: 0.2s; height: calc(40px + var(--amplitude, 0) * 20px); }
-.wave-bar:nth-child(4) { animation-delay: 0.1s; height: calc(30px + var(--amplitude, 0) * 30px); }
-.wave-bar:nth-child(5) { animation-delay: 0s; height: calc(20px + var(--amplitude, 0) * 40px); }
-
-@keyframes wave {
-  0%, 100% { transform: scaleY(1); }
-  50% { transform: scaleY(0.6); }
+.circular-visualizer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
 }
 
-.listening-pulse {
+/* CSS 기반 원형 파형 (백업) */
+.circular-wave-fallback {
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: 200px;
-  height: 200px;
+  width: 280px;
+  height: 280px;
+  display: none; /* 캔버스가 작동하면 숨김 */
+}
+
+.wave-bar-circular {
+  position: absolute;
+  width: 4px;
+  background: linear-gradient(to top, #8B5CF6, #EC4899);
+  border-radius: 2px;
+  left: 50%;
+  bottom: 50%;
+  transform-origin: bottom center;
+  transition: height 0.05s ease-out;
+}
+
+.center-pulse {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 90px;
+  height: 90px;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.9), rgba(236, 72, 153, 0.9));
   border-radius: 50%;
-  background: radial-gradient(circle, rgba(236, 72, 153, 0.3) 0%, transparent 70%);
-  animation: pulse-grow 2s ease-in-out infinite;
-  pointer-events: none;
-  z-index: -1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 0 40px rgba(139, 92, 246, 0.5);
+  transition: transform 0.1s ease-out;
 }
 
-@keyframes pulse-grow {
-  0%, 100% { transform: translate(-50%, -50%) scale(0.8); opacity: 0.8; }
-  50% { transform: translate(-50%, -50%) scale(1.2); opacity: 0.4; }
+.mic-emoji {
+  font-size: 2.5rem;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.3));
 }
 
-.mic-icon-large {
-  width: 80px;
-  height: 80px;
-  margin: 1rem auto;
-  color: #EC4899;
+/* 진폭 표시 미터 */
+.amplitude-meter {
+  width: 200px;
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+  position: relative;
 }
 
-.mic-icon-large svg {
-  width: 100%;
+.amplitude-bar {
   height: 100%;
+  background: linear-gradient(90deg, #8B5CF6, #EC4899, #F59E0B);
+  border-radius: 3px;
+  transition: width 0.05s ease-out;
+  box-shadow: 0 0 10px rgba(236, 72, 153, 0.5);
+}
+
+.amplitude-label {
+  position: absolute;
+  top: 10px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.7rem;
+  color: var(--text-muted);
 }
 
 .listening-state h3 {
-  font-size: 1.5rem;
+  font-size: 1.4rem;
   margin-bottom: 0.5rem;
+  font-weight: 600;
 }
 
-.listening-state p {
+.listening-state > p {
   color: var(--text-secondary);
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  font-size: 0.9rem;
 }
 
-.countdown {
-  font-size: 3rem;
-  font-weight: 700;
-  color: #EC4899;
+/* 카운트다운 링 */
+.countdown-container {
+  position: relative;
+  width: 80px;
+  height: 80px;
   margin: 1rem 0;
 }
 
+.countdown-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.countdown-ring circle {
+  transition: stroke-dasharray 0.3s ease;
+}
+
+.countdown {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.8rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, #C084FC, #EC4899);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
 .listening-state .hint {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.8rem;
   color: var(--text-muted);
+  margin-top: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 20px;
+}
+
+.hint-icon {
+  font-size: 0.9rem;
+}
+
+/* 중지 버튼 */
+.stop-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.75rem 2rem;
   margin-top: 1rem;
+  background: linear-gradient(135deg, #8B5CF6, #EC4899);
+  border: none;
+  border-radius: 12px;
+  color: white;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+}
+
+.stop-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 20px rgba(139, 92, 246, 0.5);
+}
+
+.stop-btn svg {
+  width: 18px;
+  height: 18px;
+}
+
+/* 오래된 스타일 (호환성) */
+.sound-wave {
+  display: none;
+}
+
+.listening-pulse {
+  display: none;
+}
+
+.mic-icon-large {
+  display: none;
 }
 
 /* Analyzing State */
