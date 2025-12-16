@@ -182,10 +182,57 @@ body {
   margin-bottom: 3rem;
 }
 
+.header-left {
+  display: flex;
+  align-items: center;
+  gap: 2rem;
+}
+
 .logo {
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  text-decoration: none;
+}
+
+/* Header Navigation */
+.header-nav {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.header-nav .nav-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.6rem 1.2rem;
+  border-radius: var(--radius-lg);
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.95rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  background: transparent;
+}
+
+.header-nav .nav-item svg {
+  width: 18px;
+  height: 18px;
+}
+
+.header-nav .nav-item:hover {
+  color: var(--text-secondary);
+  background: rgba(139, 92, 246, 0.1);
+}
+
+.header-nav .nav-item.active {
+  color: var(--primary);
+  background: rgba(139, 92, 246, 0.15);
+}
+
+.header-nav .nav-item.active svg {
+  color: var(--primary);
 }
 
 .logo-icon {
@@ -2217,6 +2264,19 @@ a.user-dropdown-item {
 
   .header {
     margin-bottom: 2rem;
+  }
+  
+  .header-left {
+    gap: 1rem;
+  }
+  
+  .header-nav .nav-item {
+    padding: 0.5rem 0.8rem;
+    font-size: 0.85rem;
+  }
+  
+  .header-nav .nav-item span {
+    display: none;
   }
 
   .logo-text {

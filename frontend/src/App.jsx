@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import './App.css'
 import AuthModal from './components/AuthModal'
 import HistoryModal from './components/HistoryModal'
@@ -10,6 +10,9 @@ import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorit
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
 
 function App() {
+  // Router
+  const location = useLocation()
+  
   // Auth state
   const [user, setUser] = useState(null)
   const [showAuthModal, setShowAuthModal] = useState(false)
@@ -1205,15 +1208,41 @@ function App() {
       <div className="main-container">
         {/* Header */}
         <header className="header">
-          <div className="logo">
-            <div className="logo-icon">
-              <svg viewBox="0 0 24 24" fill="none">
-                <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
-                <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
-                <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
-              </svg>
-            </div>
-            <span className="logo-text">Beatflo</span>
+          <div className="header-left">
+            <Link to="/" className="logo">
+              <div className="logo-icon">
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
+                  <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+              </div>
+              <span className="logo-text">Beatflo</span>
+            </Link>
+
+            <nav className="header-nav">
+              <Link 
+                to="/" 
+                className={`nav-item ${location.pathname === '/' ? 'active' : ''}`}
+              >
+                <svg viewBox="0 0 24 24" fill="none">
+                  <path d="M9 18V5l12-2v13" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <circle cx="6" cy="18" r="3" stroke="currentColor" strokeWidth="2"/>
+                  <circle cx="18" cy="16" r="3" stroke="currentColor" strokeWidth="2"/>
+                </svg>
+                <span>Music</span>
+              </Link>
+              <Link 
+                to="/community" 
+                className={`nav-item ${location.pathname === '/community' ? 'active' : ''}`}
+              >
+                <svg viewBox="0 0 24 24" fill="none">
+                  <circle cx="11" cy="11" r="8" stroke="currentColor" strokeWidth="2"/>
+                  <path d="M21 21l-4.35-4.35" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
+                </svg>
+                <span>Discover</span>
+              </Link>
+            </nav>
           </div>
 
           <div className="header-actions">
