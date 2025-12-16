@@ -2973,6 +2973,683 @@ app.post('/api/upload-media', async (req, res) => {
 
 // ==================== END FILE UPLOAD PROXY ====================
 
+// ==================== AI REMIX GENERATOR ====================
+
+// Store remix generation progress
+const remixProgress = new Map();
+
+// AI Remix Generator - Create different versions of a track
+app.post('/api/remix/generate', async (req, res) => {
+  const { videoId, videoUrl, title, remixType, options = {} } = req.body;
+  
+  if (!videoId && !videoUrl) {
+    return res.status(400).json({ error: 'Video ID or URL is required' });
+  }
+  
+  const remixId = uuidv4();
+  const targetUrl = videoUrl || `https://www.youtube.com/watch?v=${videoId}`;
+  
+  // Valid remix types
+  const validTypes = ['extended', 'festival', 'radio', 'bootleg', 'slowed', 'sped_up', 'bass_boost', 'vocal_up'];
+  if (!validTypes.includes(remixType)) {
+    return res.status(400).json({ error: `Invalid remix type. Valid types: ${validTypes.join(', ')}` });
+  }
+  
+  remixProgress.set(remixId, { 
+    status: 'downloading', 
+    progress: 0, 
+    remixType,
+    title: title || 'Unknown Track'
+  });
+  
+  res.json({ remixId, status: 'started' });
+  
+  try {
+    // Step 1: Download the original audio
+    const originalPath = path.join(DOWNLOADS_DIR, `original_${remixId}.mp3`);
+    const outputPath = path.join(DOWNLOADS_DIR, `remix_${remixId}_${remixType}.mp3`);
+    
+    // Download with yt-dlp
+    await new Promise((resolve, reject) => {
+      const downloadProcess = spawn('yt-dlp', [
+        '-x',
+        '--audio-format', 'mp3',
+        '--audio-quality', '0',
+        '-o', originalPath,
+        targetUrl
+      ]);
+      
+      downloadProcess.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error('Download failed'));
+      });
+      
+      downloadProcess.on('error', reject);
+    });
+    
+    remixProgress.set(remixId, { 
+      ...remixProgress.get(remixId),
+      status: 'processing', 
+      progress: 30 
+    });
+    
+    // Step 2: Apply remix effect using FFmpeg
+    let ffmpegArgs = ['-i', originalPath];
+    
+    switch (remixType) {
+      case 'extended':
+        // Extended Mix: Loop intro/outro, add builds
+        ffmpegArgs.push(
+          '-filter_complex',
+          '[0:a]apad=pad_dur=5,atrim=0:30,afade=t=in:st=0:d=3[intro];' +
+          '[0:a]atrim=0:30,asetpts=PTS-STARTPTS[main_intro];' +
+          '[0:a]copy[main];' +
+          '[0:a]atrim=start=0,asetpts=PTS-STARTPTS,areverse,atrim=0:30,areverse,afade=t=out:st=25:d=5[outro];' +
+          '[intro][main_intro][main][outro]concat=n=4:v=0:a=1[out]',
+          '-map', '[out]'
+        );
+        break;
+        
+      case 'festival':
+        // Festival Edit: Boost bass, add energy, emphasize drops
+        ffmpegArgs.push(
+          '-af',
+          'bass=g=8:f=110:w=0.6,' +
+          'acompressor=threshold=-20dB:ratio=4:attack=5:release=50,' +
+          'loudnorm=I=-14:TP=-1:LRA=11,' +
+          'equalizer=f=60:t=q:w=1:g=6,' +
+          'equalizer=f=8000:t=q:w=1:g=3'
+        );
+        break;
+        
+      case 'radio':
+        // Radio Edit: Shorter version with clean transitions
+        ffmpegArgs.push(
+          '-af',
+          'atrim=0:180,' +  // 3 minutes max
+          'afade=t=in:st=0:d=2,' +
+          'afade=t=out:st=178:d=2,' +
+          'loudnorm=I=-16:TP=-1.5:LRA=9'
+        );
+        break;
+        
+      case 'bootleg':
+        // Bootleg: Pitch shift, tempo change, add effects
+        ffmpegArgs.push(
+          '-af',
+          'asetrate=44100*1.05,aresample=44100,' +  // Slight pitch up
+          'bass=g=5:f=100,' +
+          'treble=g=3:f=3000,' +
+          'aecho=0.8:0.88:60:0.4'
+        );
+        break;
+        
+      case 'slowed':
+        // Slowed + Reverb (popular aesthetic)
+        ffmpegArgs.push(
+          '-af',
+          'asetrate=44100*0.85,aresample=44100,' +
+          'aecho=0.8:0.9:500:0.3,' +
+          'bass=g=4:f=80'
+        );
+        break;
+        
+      case 'sped_up':
+        // Nightcore / Sped up version
+        ffmpegArgs.push(
+          '-af',
+          'asetrate=44100*1.25,aresample=44100,' +
+          'treble=g=2:f=4000'
+        );
+        break;
+        
+      case 'bass_boost':
+        // Heavy bass boost
+        ffmpegArgs.push(
+          '-af',
+          'bass=g=15:f=80:w=0.5,' +
+          'equalizer=f=40:t=q:w=1:g=10,' +
+          'equalizer=f=100:t=q:w=1:g=8,' +
+          'acompressor=threshold=-25dB:ratio=6:attack=3:release=100,' +
+          'loudnorm=I=-14:TP=-1'
+        );
+        break;
+        
+      case 'vocal_up':
+        // Enhance vocals
+        ffmpegArgs.push(
+          '-af',
+          'equalizer=f=300:t=q:w=2:g=3,' +
+          'equalizer=f=1000:t=q:w=2:g=4,' +
+          'equalizer=f=3000:t=q:w=2:g=5,' +
+          'acompressor=threshold=-18dB:ratio=3:attack=10:release=100'
+        );
+        break;
+    }
+    
+    ffmpegArgs.push('-y', outputPath);
+    
+    // Run FFmpeg
+    await new Promise((resolve, reject) => {
+      const ffmpegProcess = spawn('ffmpeg', ffmpegArgs);
+      
+      ffmpegProcess.stderr.on('data', (data) => {
+        // Parse progress from FFmpeg output
+        const output = data.toString();
+        const timeMatch = output.match(/time=(\d{2}):(\d{2}):(\d{2})/);
+        if (timeMatch) {
+          remixProgress.set(remixId, {
+            ...remixProgress.get(remixId),
+            progress: Math.min(90, 30 + Math.random() * 50)
+          });
+        }
+      });
+      
+      ffmpegProcess.on('close', (code) => {
+        if (code === 0) resolve();
+        else reject(new Error('FFmpeg processing failed'));
+      });
+      
+      ffmpegProcess.on('error', reject);
+    });
+    
+    // Clean up original
+    if (fs.existsSync(originalPath)) {
+      fs.unlinkSync(originalPath);
+    }
+    
+    remixProgress.set(remixId, { 
+      ...remixProgress.get(remixId),
+      status: 'completed', 
+      progress: 100,
+      downloadUrl: `/api/remix/download/${remixId}/${remixType}`
+    });
+    
+  } catch (error) {
+    console.error('Remix generation error:', error);
+    remixProgress.set(remixId, { 
+      ...remixProgress.get(remixId),
+      status: 'error', 
+      error: error.message 
+    });
+  }
+});
+
+// Get remix progress
+app.get('/api/remix/progress/:remixId', (req, res) => {
+  const { remixId } = req.params;
+  const progress = remixProgress.get(remixId);
+  
+  if (!progress) {
+    return res.status(404).json({ error: 'Remix not found' });
+  }
+  
+  res.json(progress);
+});
+
+// Download remixed track
+app.get('/api/remix/download/:remixId/:remixType', (req, res) => {
+  const { remixId, remixType } = req.params;
+  const filePath = path.join(DOWNLOADS_DIR, `remix_${remixId}_${remixType}.mp3`);
+  
+  if (!fs.existsSync(filePath)) {
+    return res.status(404).json({ error: 'Remix file not found' });
+  }
+  
+  const progress = remixProgress.get(remixId);
+  const title = progress?.title || 'remix';
+  const safeTitle = title.replace(/[^a-zA-Z0-9가-힣\s]/g, '').substring(0, 50);
+  
+  res.setHeader('Content-Disposition', `attachment; filename="${safeTitle}_${remixType}.mp3"`);
+  res.setHeader('Content-Type', 'audio/mpeg');
+  
+  const fileStream = fs.createReadStream(filePath);
+  fileStream.pipe(res);
+  
+  // Clean up after download
+  fileStream.on('end', () => {
+    setTimeout(() => {
+      if (fs.existsSync(filePath)) {
+        fs.unlinkSync(filePath);
+      }
+      remixProgress.delete(remixId);
+    }, 60000); // Delete after 1 minute
+  });
+});
+
+// Get available remix types
+app.get('/api/remix/types', (req, res) => {
+  res.json({
+    types: [
+      { id: 'extended', name: 'Extended Mix', description: '인트로/아웃트로 확장, DJ 믹싱용', icon: '⏱️', premium: false },
+      { id: 'festival', name: 'Festival Edit', description: '베이스 부스트, 에너지 극대화', icon: '🎪', premium: true },
+      { id: 'radio', name: 'Radio Edit', description: '3분 컷, 깔끔한 인아웃', icon: '📻', premium: false },
+      { id: 'bootleg', name: 'Bootleg Remix', description: '피치업 + 이펙트, 클럽 스타일', icon: '🔥', premium: true },
+      { id: 'slowed', name: 'Slowed + Reverb', description: '느린 템포 + 잔향 효과', icon: '🌙', premium: false },
+      { id: 'sped_up', name: 'Nightcore / Sped Up', description: '빠른 템포 + 피치업', icon: '⚡', premium: false },
+      { id: 'bass_boost', name: 'Bass Boosted', description: '강력한 저음 강조', icon: '🔊', premium: true },
+      { id: 'vocal_up', name: 'Vocal Enhanced', description: '보컬 선명도 향상', icon: '🎤', premium: true }
+    ]
+  });
+});
+
+// ==================== END AI REMIX GENERATOR ====================
+
+// ==================== TREND PREDICTION ENGINE ====================
+
+// Analyze track and predict trend potential
+app.post('/api/trends/predict', async (req, res) => {
+  const { videoId, videoUrl, title, artist, genre } = req.body;
+  
+  if (!hasAI) {
+    return res.status(503).json({ error: 'AI services not available' });
+  }
+  
+  try {
+    const prompt = `You are a music industry analyst AI specializing in trend prediction.
+
+Analyze this track and predict its viral/chart potential:
+- Title: ${title || 'Unknown'}
+- Artist: ${artist || 'Unknown'}
+- Genre: ${genre || 'Unknown'}
+- YouTube ID: ${videoId || 'N/A'}
+
+Provide a JSON response with:
+{
+  "chartPotential": (0-100 score),
+  "viralPotential": (0-100 score),
+  "peakTimeframe": "예상 피크 시점 (예: 2주 후, 1개월 후)",
+  "targetAudience": ["주요 타겟층"],
+  "similarSuccesses": ["비슷한 성공 사례 트랙들"],
+  "keyFactors": ["성공 요인들"],
+  "risks": ["리스크 요인들"],
+  "recommendation": "DJ에게 추천 멘트",
+  "bestPlayContext": ["최적의 플레이 상황 (클럽 피크타임, 페스티벌 등)"],
+  "hashtagSuggestions": ["추천 해시태그"],
+  "trendCategory": "rising|stable|declining|viral_potential|sleeper_hit"
+}`;
+
+    let prediction;
+    
+    if (genAI) {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      prediction = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } else if (anthropic) {
+      const result = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 1500,
+        messages: [{ role: "user", content: prompt }]
+      });
+      const text = result.content[0].text;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      prediction = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } else if (openai) {
+      const result = await openai.chat.completions.create({
+        model: "gpt-3.5-turbo",
+        messages: [{ role: "user", content: prompt }],
+        max_tokens: 1500
+      });
+      const text = result.choices[0].message.content;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      prediction = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    }
+    
+    if (!prediction) {
+      throw new Error('Failed to parse AI prediction');
+    }
+    
+    res.json({
+      success: true,
+      track: { videoId, title, artist, genre },
+      prediction,
+      analyzedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Trend prediction error:', error);
+    res.status(500).json({ error: 'Failed to predict trends', details: error.message });
+  }
+});
+
+// Get trending tracks by genre (simulated with AI analysis)
+app.post('/api/trends/genre', async (req, res) => {
+  const { genre, timeframe = 'week' } = req.body;
+  
+  if (!hasAI) {
+    return res.status(503).json({ error: 'AI services not available' });
+  }
+  
+  try {
+    const prompt = `You are a music trend analyst. Generate a realistic list of trending ${genre} tracks for the ${timeframe}.
+
+Return JSON:
+{
+  "genre": "${genre}",
+  "timeframe": "${timeframe}",
+  "trends": [
+    {
+      "rank": 1,
+      "title": "track name",
+      "artist": "artist name",
+      "trendScore": 95,
+      "movement": "up|down|stable|new",
+      "weeksOnChart": 3,
+      "peakPosition": 1,
+      "playCount": "2.3M",
+      "growthRate": "+45%",
+      "topDJs": ["DJ names playing this"],
+      "venues": ["where it's being played"]
+    }
+  ],
+  "emergingArtists": ["up and coming artists"],
+  "predictedNextBig": ["tracks likely to chart soon"],
+  "genreHealth": "growing|stable|declining",
+  "insights": "overall genre trend analysis"
+}
+
+Generate 10 realistic trending tracks.`;
+
+    let trendData;
+    
+    if (genAI) {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      trendData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } else if (anthropic) {
+      const result = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }]
+      });
+      const text = result.content[0].text;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      trendData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    }
+    
+    res.json({
+      success: true,
+      ...trendData,
+      generatedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Genre trends error:', error);
+    res.status(500).json({ error: 'Failed to get genre trends' });
+  }
+});
+
+// Get rising tracks predictions
+app.get('/api/trends/rising', async (req, res) => {
+  if (!hasAI) {
+    return res.status(503).json({ error: 'AI services not available' });
+  }
+  
+  try {
+    const prompt = `You are a music industry analyst. Generate a list of tracks that are predicted to blow up soon.
+
+Return JSON:
+{
+  "risingTracks": [
+    {
+      "title": "track name",
+      "artist": "artist name",
+      "genre": "genre",
+      "currentPopularity": 45,
+      "predictedPeak": 92,
+      "daysUntilPeak": 14,
+      "confidence": 87,
+      "signals": ["why this will blow up"],
+      "similarPastHits": ["tracks that had similar trajectory"],
+      "recommendedAction": "what DJs should do"
+    }
+  ],
+  "methodology": "how predictions are made",
+  "accuracy": "historical accuracy rate",
+  "lastUpdated": "timestamp"
+}
+
+Generate 8 realistic rising track predictions across different genres.`;
+
+    let risingData;
+    
+    if (genAI) {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      risingData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } else if (anthropic) {
+      const result = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 2000,
+        messages: [{ role: "user", content: prompt }]
+      });
+      const text = result.content[0].text;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      risingData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    }
+    
+    res.json({
+      success: true,
+      ...risingData,
+      generatedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Rising tracks error:', error);
+    res.status(500).json({ error: 'Failed to get rising tracks' });
+  }
+});
+
+// ==================== END TREND PREDICTION ENGINE ====================
+
+// ==================== GLOBAL DJ PLAYLIST SPY ====================
+
+// Get tracks played by famous DJs
+app.post('/api/spy/dj-tracks', async (req, res) => {
+  const { djName, timeframe = 'week', venue = null } = req.body;
+  
+  if (!hasAI) {
+    return res.status(503).json({ error: 'AI services not available' });
+  }
+  
+  try {
+    const venueContext = venue ? ` at ${venue}` : '';
+    const prompt = `You are a music industry analyst with access to DJ setlist data.
+
+Generate realistic setlist data for ${djName}${venueContext} over the past ${timeframe}.
+
+Return JSON:
+{
+  "dj": {
+    "name": "${djName}",
+    "genres": ["primary genres"],
+    "style": "DJ style description",
+    "avgBPM": 128,
+    "signatureSound": "what makes them unique"
+  },
+  "recentTracks": [
+    {
+      "title": "track name",
+      "artist": "artist name",
+      "playCount": 5,
+      "lastPlayed": "date",
+      "venues": ["where played"],
+      "setPosition": "opener|buildup|peak|closer",
+      "crowdReaction": "reaction description",
+      "isUnreleased": false,
+      "bpm": 126,
+      "key": "Am"
+    }
+  ],
+  "topVenues": ["recent venues"],
+  "upcomingGigs": ["upcoming shows"],
+  "styleEvolution": "how their style is changing",
+  "trackSources": ["labels/sources they pull from"],
+  "hiddenGems": ["lesser known tracks they've played"],
+  "collaboration": ["artists they frequently play"]
+}
+
+Generate 15 realistic tracks.`;
+
+    let djData;
+    
+    if (genAI) {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      djData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } else if (anthropic) {
+      const result = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 2500,
+        messages: [{ role: "user", content: prompt }]
+      });
+      const text = result.content[0].text;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      djData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    }
+    
+    res.json({
+      success: true,
+      ...djData,
+      queriedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('DJ spy error:', error);
+    res.status(500).json({ error: 'Failed to get DJ tracks' });
+  }
+});
+
+// Get popular DJs list
+app.get('/api/spy/popular-djs', async (req, res) => {
+  res.json({
+    djs: [
+      { name: 'Carl Cox', genres: ['Techno', 'House'], followers: '2.1M', active: true },
+      { name: 'Charlotte de Witte', genres: ['Techno'], followers: '1.8M', active: true },
+      { name: 'Fisher', genres: ['Tech House'], followers: '1.5M', active: true },
+      { name: 'Peggy Gou', genres: ['House', 'Techno'], followers: '1.2M', active: true },
+      { name: 'Adam Beyer', genres: ['Techno'], followers: '980K', active: true },
+      { name: 'Amelie Lens', genres: ['Techno'], followers: '1.4M', active: true },
+      { name: 'Black Coffee', genres: ['Afro House'], followers: '1.1M', active: true },
+      { name: 'Nina Kraviz', genres: ['Techno'], followers: '890K', active: true },
+      { name: 'Jamie Jones', genres: ['Tech House'], followers: '750K', active: true },
+      { name: 'Solomun', genres: ['Melodic House'], followers: '1.3M', active: true },
+      { name: 'Tale of Us', genres: ['Melodic Techno'], followers: '1.1M', active: true },
+      { name: 'Richie Hawtin', genres: ['Minimal Techno'], followers: '820K', active: true },
+      { name: 'Boris Brejcha', genres: ['High-Tech Minimal'], followers: '950K', active: true },
+      { name: 'Disclosure', genres: ['House', 'UK Garage'], followers: '2.3M', active: true },
+      { name: 'Fred again..', genres: ['House', 'Electronic'], followers: '1.9M', active: true }
+    ]
+  });
+});
+
+// Get venue/festival trending tracks
+app.post('/api/spy/venue-trends', async (req, res) => {
+  const { venue, timeframe = 'month' } = req.body;
+  
+  if (!hasAI) {
+    return res.status(503).json({ error: 'AI services not available' });
+  }
+  
+  try {
+    const prompt = `You are a music analyst tracking club and festival playlists.
+
+Generate trending track data for ${venue} over the past ${timeframe}.
+
+Return JSON:
+{
+  "venue": {
+    "name": "${venue}",
+    "location": "city, country",
+    "type": "club|festival|radio",
+    "capacity": 1500,
+    "soundSystem": "system details",
+    "residentDJs": ["resident DJs"],
+    "musicPolicy": "what kind of music"
+  },
+  "trendingTracks": [
+    {
+      "rank": 1,
+      "title": "track name",
+      "artist": "artist name",
+      "playCount": 23,
+      "peakTime": "when most played (e.g., 2-3am)",
+      "djsPlaying": ["DJs who played it"],
+      "firstPlayed": "date",
+      "crowdFavorite": true,
+      "bpm": 128,
+      "genre": "genre"
+    }
+  ],
+  "genreBreakdown": {"Techno": 45, "House": 35, "Other": 20},
+  "avgBPM": 127,
+  "peakHours": "1am-4am",
+  "insights": "venue trend analysis"
+}
+
+Generate 12 trending tracks.`;
+
+    let venueData;
+    
+    if (genAI) {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
+      const result = await model.generateContent(prompt);
+      const text = result.response.text();
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      venueData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    } else if (anthropic) {
+      const result = await anthropic.messages.create({
+        model: "claude-3-haiku-20240307",
+        max_tokens: 2500,
+        messages: [{ role: "user", content: prompt }]
+      });
+      const text = result.content[0].text;
+      const jsonMatch = text.match(/\{[\s\S]*\}/);
+      venueData = jsonMatch ? JSON.parse(jsonMatch[0]) : null;
+    }
+    
+    res.json({
+      success: true,
+      ...venueData,
+      queriedAt: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('Venue trends error:', error);
+    res.status(500).json({ error: 'Failed to get venue trends' });
+  }
+});
+
+// Get popular venues list
+app.get('/api/spy/venues', async (req, res) => {
+  res.json({
+    venues: [
+      { name: 'Berghain', location: 'Berlin, Germany', type: 'club', genres: ['Techno'] },
+      { name: 'Fabric', location: 'London, UK', type: 'club', genres: ['Techno', 'DnB'] },
+      { name: 'Output', location: 'New York, USA', type: 'club', genres: ['Techno', 'House'] },
+      { name: 'Amnesia', location: 'Ibiza, Spain', type: 'club', genres: ['House', 'Techno'] },
+      { name: 'Cakeshop', location: 'Seoul, Korea', type: 'club', genres: ['Techno', 'House'] },
+      { name: 'Warehouse Project', location: 'Manchester, UK', type: 'club', genres: ['Electronic'] },
+      { name: 'Tomorrowland', location: 'Boom, Belgium', type: 'festival', genres: ['EDM'] },
+      { name: 'Ultra Music Festival', location: 'Miami, USA', type: 'festival', genres: ['EDM'] },
+      { name: 'Awakenings', location: 'Amsterdam, Netherlands', type: 'festival', genres: ['Techno'] },
+      { name: 'Sonar', location: 'Barcelona, Spain', type: 'festival', genres: ['Electronic'] },
+      { name: 'Movement', location: 'Detroit, USA', type: 'festival', genres: ['Techno'] },
+      { name: 'BBC Radio 1', location: 'UK', type: 'radio', genres: ['Electronic'] }
+    ]
+  });
+});
+
+// ==================== END GLOBAL DJ PLAYLIST SPY ====================
+
 // Health check
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

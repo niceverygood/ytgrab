@@ -6,6 +6,7 @@ import HistoryModal from './components/HistoryModal'
 import WaveformVisualizer from './components/WaveformVisualizer'
 import ListenButton from './components/ListenButton'
 import CommunitySection from './components/CommunitySection'
+import { RemixGenerator, TrendPredictor, DJPlaylistSpy } from './components/PremiumFeatures'
 import { supabase, signOut, saveDownload, addFavorite, removeFavorite, isFavorite, saveRecommendation, createSetlist, getSetlists } from './lib/supabase'
 
 const API_BASE = import.meta.env.VITE_API_URL || '/api'
@@ -65,6 +66,13 @@ function App() {
   // Preview state
   const [previewTrack, setPreviewTrack] = useState(null)
   const [inlinePreview, setInlinePreview] = useState(null) // For inline audio preview
+  
+  // Premium Features state
+  const [showRemixModal, setShowRemixModal] = useState(false)
+  const [remixTrack, setRemixTrack] = useState(null)
+  const [showTrendModal, setShowTrendModal] = useState(false)
+  const [trendTrack, setTrendTrack] = useState(null)
+  const [showDJSpyModal, setShowDJSpyModal] = useState(false)
   
   // Filter state (B: Smart Filters)
   const [filters, setFilters] = useState({
@@ -1569,6 +1577,47 @@ function App() {
                     title="Waveform 보기"
                   >
                     <svg viewBox="0 0 24 24" fill="none"><path d="M2 12h2M6 8v8M10 5v14M14 8v8M18 10v4M22 12h-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
+                  </button>
+                </div>
+                
+                {/* Premium Features Bar */}
+                <div className="premium-features-bar">
+                  <span className="premium-label">🎛️ Pro Tools</span>
+                  <button 
+                    className="premium-btn remix"
+                    onClick={() => {
+                      setRemixTrack({
+                        videoId: videoInfo.videoId,
+                        url: videoInfo.url,
+                        title: videoInfo.title
+                      })
+                      setShowRemixModal(true)
+                    }}
+                    title="AI 리믹스 생성"
+                  >
+                    <span>🎛️</span> 리믹스
+                  </button>
+                  <button 
+                    className="premium-btn trend"
+                    onClick={() => {
+                      setTrendTrack({
+                        videoId: videoInfo.videoId,
+                        title: videoInfo.title,
+                        uploader: videoInfo.uploader,
+                        genre: videoInfo.genre
+                      })
+                      setShowTrendModal(true)
+                    }}
+                    title="트렌드 예측"
+                  >
+                    <span>🔮</span> 트렌드
+                  </button>
+                  <button 
+                    className="premium-btn spy"
+                    onClick={() => setShowDJSpyModal(true)}
+                    title="DJ 플레이리스트 스파이"
+                  >
+                    <span>🕵️</span> DJ 스파이
                   </button>
                 </div>
                 
@@ -3562,6 +3611,47 @@ function App() {
       )}
 
       {/* ==================== END DJ PRO MODALS ==================== */}
+
+      {/* ==================== PREMIUM FEATURE MODALS ==================== */}
+      
+      {/* AI Remix Generator Modal */}
+      {showRemixModal && remixTrack && (
+        <div className="modal-overlay premium-modal" onClick={() => setShowRemixModal(false)}>
+          <RemixGenerator 
+            track={remixTrack} 
+            onClose={() => setShowRemixModal(false)} 
+          />
+        </div>
+      )}
+
+      {/* Trend Predictor Modal */}
+      {showTrendModal && trendTrack && (
+        <div className="modal-overlay premium-modal" onClick={() => setShowTrendModal(false)}>
+          <TrendPredictor 
+            track={trendTrack} 
+            onClose={() => setShowTrendModal(false)} 
+          />
+        </div>
+      )}
+
+      {/* DJ Playlist Spy Modal */}
+      {showDJSpyModal && (
+        <div className="modal-overlay premium-modal" onClick={() => setShowDJSpyModal(false)}>
+          <DJPlaylistSpy 
+            onClose={() => setShowDJSpyModal(false)}
+            onTrackSelect={(track) => {
+              // 선택한 트랙 검색
+              if (track.title && track.artist) {
+                setUrl(`${track.title} ${track.artist}`)
+                fetchVideoInfo(`${track.title} ${track.artist}`)
+                setShowDJSpyModal(false)
+              }
+            }}
+          />
+        </div>
+      )}
+
+      {/* ==================== END PREMIUM FEATURE MODALS ==================== */}
 
       {/* Auth Modal */}
       <AuthModal isOpen={showAuthModal} onClose={() => setShowAuthModal(false)} />
