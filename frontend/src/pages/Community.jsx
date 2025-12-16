@@ -19,6 +19,258 @@ import {
 } from '../lib/supabase'
 import './Community.css'
 
+// 더미 데이터 - 커뮤니티 분위기를 보여주기 위한 샘플
+const DUMMY_FEED = [
+  {
+    id: 'dummy-1',
+    feedType: 'post',
+    post_type: 'music',
+    user_id: 'dummy-user-1',
+    content: '오늘 새벽 드라이브하면서 들은 트랙 🌙 Fred again.. 신곡 진짜 미쳤다',
+    music_title: 'Danielle (smile on my face)',
+    music_artist: 'Fred again..',
+    music_thumbnail: 'https://i.ytimg.com/vi/7_zbN4jdXYA/hqdefault.jpg',
+    music_url: 'https://youtube.com/watch?v=7_zbN4jdXYA',
+    created_at: new Date(Date.now() - 1000 * 60 * 30).toISOString(),
+    likes_count: 47,
+    comments_count: 12,
+    profiles: {
+      display_name: 'NightOwl_DJ',
+      username: 'nightowl',
+      avatar_url: 'https://ui-avatars.com/api/?name=NightOwl&background=EC4899&color=fff'
+    }
+  },
+  {
+    id: 'dummy-2',
+    feedType: 'mixset',
+    user_id: 'dummy-user-2',
+    title: 'Sunset House Vibes 2024',
+    description: '여름 석양이 생각나는 딥하우스 믹스 🌅',
+    genre: 'Deep House',
+    tracks: [
+      { thumbnail: 'https://i.ytimg.com/vi/DkeiKbqa02g/hqdefault.jpg' },
+      { thumbnail: 'https://i.ytimg.com/vi/psuRGfAajqI/hqdefault.jpg' },
+      { thumbnail: 'https://i.ytimg.com/vi/XGSy3_Czz8k/hqdefault.jpg' },
+    ],
+    total_duration: 3847,
+    cover_image: 'https://i.ytimg.com/vi/DkeiKbqa02g/maxresdefault.jpg',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 2).toISOString(),
+    likes_count: 156,
+    profiles: {
+      display_name: 'DJ_Horizon',
+      username: 'djhorizon',
+      avatar_url: 'https://ui-avatars.com/api/?name=Horizon&background=8B5CF6&color=fff'
+    }
+  },
+  {
+    id: 'dummy-3',
+    feedType: 'post',
+    post_type: 'text',
+    user_id: 'dummy-user-3',
+    content: '다음 주 홍대 클럽에서 첫 공연이에요! 🎉 긴장되지만 열심히 준비했습니다. 오시는 분들 같이 놀아요~',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 5).toISOString(),
+    likes_count: 89,
+    comments_count: 34,
+    profiles: {
+      display_name: 'MINA',
+      username: 'minaa_dj',
+      avatar_url: 'https://ui-avatars.com/api/?name=MINA&background=22D3EE&color=fff'
+    }
+  },
+  {
+    id: 'dummy-4',
+    feedType: 'post',
+    post_type: 'music',
+    user_id: 'dummy-user-4',
+    content: '베이스 라인이 너무 좋아서 무한반복 중 🔊 이번 앨범 전체가 명작',
+    music_title: 'Opus',
+    music_artist: 'Eric Prydz',
+    music_thumbnail: 'https://i.ytimg.com/vi/iRA82xLsb_w/hqdefault.jpg',
+    music_url: 'https://youtube.com/watch?v=iRA82xLsb_w',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 8).toISOString(),
+    likes_count: 234,
+    comments_count: 56,
+    profiles: {
+      display_name: 'BassDrop',
+      username: 'bassdrop',
+      avatar_url: 'https://ui-avatars.com/api/?name=BD&background=F59E0B&color=fff'
+    }
+  },
+  {
+    id: 'dummy-5',
+    feedType: 'favorite',
+    user_id: 'dummy-user-5',
+    title: 'Midnight City',
+    uploader: 'M83',
+    thumbnail: 'https://i.ytimg.com/vi/dX3k_QDnzHE/hqdefault.jpg',
+    url: 'https://youtube.com/watch?v=dX3k_QDnzHE',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    likes_count: 312,
+    profiles: {
+      display_name: 'SynthWave_Seoul',
+      username: 'synthwave',
+      avatar_url: 'https://ui-avatars.com/api/?name=SW&background=6366F1&color=fff'
+    }
+  }
+]
+
+const DUMMY_MIXSETS = [
+  {
+    id: 'mixset-1',
+    title: '🌃 Seoul Night Drive Mix',
+    description: '서울 야경과 함께하는 드라이브 믹스. 시티팝부터 하우스까지.',
+    genre: 'City Pop / House',
+    tracks: [
+      { thumbnail: 'https://i.ytimg.com/vi/XGSy3_Czz8k/hqdefault.jpg', title: 'Plastic Love' },
+      { thumbnail: 'https://i.ytimg.com/vi/3nlSDxvt6JU/hqdefault.jpg', title: 'Stay With Me' },
+      { thumbnail: 'https://i.ytimg.com/vi/DkeiKbqa02g/hqdefault.jpg', title: 'Deep End' },
+      { thumbnail: 'https://i.ytimg.com/vi/qN-SdXXKfp8/hqdefault.jpg', title: 'Midnight' },
+    ],
+    total_duration: 4523,
+    cover_image: 'https://images.unsplash.com/photo-1519501025264-65ba15a82390?w=400',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 24).toISOString(),
+    likes_count: 423,
+    profiles: {
+      display_name: 'DJ_Horizon',
+      username: 'djhorizon',
+      avatar_url: 'https://ui-avatars.com/api/?name=Horizon&background=8B5CF6&color=fff'
+    }
+  },
+  {
+    id: 'mixset-2',
+    title: '⚡ Peak Time Techno',
+    description: '새벽 3시, 클럽의 절정. 하드 테크노 세트.',
+    genre: 'Techno',
+    tracks: [
+      { thumbnail: 'https://i.ytimg.com/vi/JWZlYM0rqC8/hqdefault.jpg', title: 'Drumcode' },
+      { thumbnail: 'https://i.ytimg.com/vi/hVAKC2WBXVM/hqdefault.jpg', title: 'Exhale' },
+      { thumbnail: 'https://i.ytimg.com/vi/QI8qD4wZJQE/hqdefault.jpg', title: 'Industrial' },
+    ],
+    total_duration: 5234,
+    cover_image: 'https://images.unsplash.com/photo-1574169208507-84376144848b?w=400',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 48).toISOString(),
+    likes_count: 567,
+    profiles: {
+      display_name: 'TechnoKing',
+      username: 'technoking',
+      avatar_url: 'https://ui-avatars.com/api/?name=TK&background=EF4444&color=fff'
+    }
+  },
+  {
+    id: 'mixset-3',
+    title: '🌴 Tropical Sunset',
+    description: '해변에서 듣기 좋은 트로피컬 하우스 모음',
+    genre: 'Tropical House',
+    tracks: [
+      { thumbnail: 'https://i.ytimg.com/vi/2ZBtPf7FOoM/hqdefault.jpg', title: 'Lean On' },
+      { thumbnail: 'https://i.ytimg.com/vi/dkx9-xJI8BI/hqdefault.jpg', title: 'Ocean' },
+    ],
+    total_duration: 3156,
+    cover_image: 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=400',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 72).toISOString(),
+    likes_count: 289,
+    profiles: {
+      display_name: 'BeachVibes',
+      username: 'beachvibes',
+      avatar_url: 'https://ui-avatars.com/api/?name=BV&background=10B981&color=fff'
+    }
+  },
+  {
+    id: 'mixset-4',
+    title: '🎹 Lo-Fi Study Session',
+    description: '집중력 높여주는 로파이 비트. 공부할 때 틀어두세요.',
+    genre: 'Lo-Fi Hip Hop',
+    tracks: [
+      { thumbnail: 'https://i.ytimg.com/vi/5qap5aO4i9A/hqdefault.jpg', title: 'Lofi Girl' },
+      { thumbnail: 'https://i.ytimg.com/vi/lTRiuFIWV54/hqdefault.jpg', title: 'Chill Beats' },
+    ],
+    total_duration: 7200,
+    cover_image: 'https://images.unsplash.com/photo-1494232410401-ad00d5433cfa?w=400',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 96).toISOString(),
+    likes_count: 891,
+    profiles: {
+      display_name: 'StudyMode',
+      username: 'studymode',
+      avatar_url: 'https://ui-avatars.com/api/?name=SM&background=A855F7&color=fff'
+    }
+  }
+]
+
+const DUMMY_TRENDING = [
+  {
+    id: 'trend-1',
+    feedType: 'post',
+    post_type: 'music',
+    user_id: 'dummy-user-t1',
+    content: '🔥 이 트랙 진짜 핫함. 요즘 클럽마다 이 노래 안 트는 곳 없음',
+    music_title: 'Rumble',
+    music_artist: 'Skrillex, Fred again.., Flowdan',
+    music_thumbnail: 'https://i.ytimg.com/vi/hXd6u9o6dYY/hqdefault.jpg',
+    music_url: 'https://youtube.com/watch?v=hXd6u9o6dYY',
+    created_at: new Date(Date.now() - 1000 * 60 * 45).toISOString(),
+    likes_count: 1247,
+    comments_count: 234,
+    profiles: {
+      display_name: 'ClubCritic',
+      username: 'clubcritic',
+      avatar_url: 'https://ui-avatars.com/api/?name=CC&background=DC2626&color=fff'
+    }
+  },
+  {
+    id: 'trend-2',
+    feedType: 'mixset',
+    user_id: 'dummy-user-t2',
+    title: '🏆 Ultra Korea 2024 Recap',
+    description: '울트라 코리아 라이브에서 인상 깊었던 트랙 모음',
+    genre: 'EDM / Festival',
+    tracks: [
+      { thumbnail: 'https://i.ytimg.com/vi/mRD0-GxqHVo/hqdefault.jpg' },
+      { thumbnail: 'https://i.ytimg.com/vi/IcrbM1l_BoI/hqdefault.jpg' },
+      { thumbnail: 'https://i.ytimg.com/vi/auzfTPp4moA/hqdefault.jpg' },
+    ],
+    total_duration: 6234,
+    cover_image: 'https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?w=400',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 3).toISOString(),
+    likes_count: 2341,
+    profiles: {
+      display_name: 'FestivalHunter',
+      username: 'festivalhunter',
+      avatar_url: 'https://ui-avatars.com/api/?name=FH&background=7C3AED&color=fff'
+    }
+  },
+  {
+    id: 'trend-3',
+    feedType: 'post',
+    post_type: 'text',
+    user_id: 'dummy-user-t3',
+    content: '💿 DJ 시작한 지 1년 됐는데 드디어 첫 정규 공연 잡았어요! Beatflo에서 트랙 찾으면서 공부했는데 정말 도움 많이 됐습니다. 감사해요 여러분 🙏',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 6).toISOString(),
+    likes_count: 567,
+    comments_count: 89,
+    profiles: {
+      display_name: 'RookieDJ',
+      username: 'rookiedj',
+      avatar_url: 'https://ui-avatars.com/api/?name=RD&background=059669&color=fff'
+    }
+  },
+  {
+    id: 'trend-4',
+    feedType: 'favorite',
+    user_id: 'dummy-user-t4',
+    title: 'One More Time',
+    uploader: 'Daft Punk',
+    thumbnail: 'https://i.ytimg.com/vi/FGBhQbmPwH8/hqdefault.jpg',
+    url: 'https://youtube.com/watch?v=FGBhQbmPwH8',
+    created_at: new Date(Date.now() - 1000 * 60 * 60 * 12).toISOString(),
+    likes_count: 4521,
+    profiles: {
+      display_name: 'ClassicElectronic',
+      username: 'classicelectro',
+      avatar_url: 'https://ui-avatars.com/api/?name=CE&background=0EA5E9&color=fff'
+    }
+  }
+]
+
 function Community() {
   const [user, setUser] = useState(null)
   const [activeTab, setActiveTab] = useState('feed') // feed, mixsets, trending
@@ -71,12 +323,13 @@ function Community() {
   const loadData = async () => {
     setLoading(true)
     
-    if (activeTab === 'feed' || activeTab === 'trending') {
+    if (activeTab === 'feed') {
       const { data } = await getEnhancedCommunityFeed(50, false, user?.id)
-      setFeed(data || [])
+      // 실제 데이터가 없으면 더미 데이터 사용
+      setFeed((data && data.length > 0) ? data : DUMMY_FEED)
       
       // Check which items are liked by current user
-      if (user && data) {
+      if (user && data && data.length > 0) {
         const likeChecks = {}
         for (const item of data) {
           if (item.feedType === 'post') {
@@ -89,12 +342,24 @@ function Community() {
       }
     }
     
+    if (activeTab === 'trending') {
+      const { data } = await getEnhancedCommunityFeed(50, false, user?.id)
+      // 트렌딩은 좋아요순 정렬된 더미 데이터 또는 실제 데이터
+      if (data && data.length > 0) {
+        const sorted = [...data].sort((a, b) => (b.likes_count || 0) - (a.likes_count || 0))
+        setFeed(sorted)
+      } else {
+        setFeed(DUMMY_TRENDING)
+      }
+    }
+    
     if (activeTab === 'mixsets') {
       const { data } = await getPublicMixsets(30)
-      setMixsets(data || [])
+      // 실제 데이터가 없으면 더미 데이터 사용
+      setMixsets((data && data.length > 0) ? data : DUMMY_MIXSETS)
       
       // Check which mixsets are liked by current user
-      if (user && data) {
+      if (user && data && data.length > 0) {
         const likeChecks = {}
         for (const m of data) {
           likeChecks[`mixset-${m.id}`] = await isMixsetLiked(user.id, m.id)
@@ -597,6 +862,20 @@ function Community() {
             {/* Feed Tab */}
             {(activeTab === 'feed' || activeTab === 'trending') && (
               <div className="feed-container">
+                {/* 탭 설명 헤더 */}
+                <div className="tab-intro">
+                  {activeTab === 'feed' ? (
+                    <>
+                      <h2>🎵 커뮤니티 피드</h2>
+                      <p>DJ들의 음악 이야기와 새로운 트랙을 발견하세요</p>
+                    </>
+                  ) : (
+                    <>
+                      <h2>🔥 지금 인기있는</h2>
+                      <p>커뮤니티에서 가장 핫한 트랙과 믹셋</p>
+                    </>
+                  )}
+                </div>
                 {feed.length === 0 ? (
                   <div className="empty-state">
                     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/><path d="M8 15s1.5 2 4 2 4-2 4-2" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/></svg>
@@ -786,6 +1065,11 @@ function Community() {
             {/* Mixsets Tab */}
             {activeTab === 'mixsets' && (
               <div className="mixsets-container">
+                {/* 믹셋 탭 소개 */}
+                <div className="tab-intro">
+                  <h2>💿 DJ 믹셋</h2>
+                  <p>DJ들이 직접 큐레이션한 플레이리스트와 믹셋을 즐겨보세요</p>
+                </div>
                 {mixsets.length === 0 ? (
                   <div className="empty-state">
                     <svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="2"/></svg>
